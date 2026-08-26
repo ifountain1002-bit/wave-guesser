@@ -1,0 +1,605 @@
+/**
+ * Wave Guesser — round flow, timer, scoring and the two Leaflet maps.
+ */
+(function () {
+  "use strict";
+
+  /* ---------------------------------------------------------------- */
+  /* config                                                            */
+  /* ---------------------------------------------------------------- */
+
+  const ROUND_SECONDS = 60;
+  const MAX_POINTS = 5000;
+  const PERFECT_KM = 25;          // anything this close is a bullseye
+  const DECAY_KM = 1500;          // how fast points fall off with distance
+  const MIN_SEPARATION_KM = 100;  // keep two rounds from being the same place
+  const BEST_KEY = "waveguesser.best";
+  const WORLD_VIEW = [[-58, -172], [74, 178]];  // skips the empty polar bands
+
+  const TILES = {
+    on: {
+      url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    },
+    off: {
+      url: "https://{s}.basemaps.cartocdn.com/rastertiles/voyager_nolabels/{z}/{x}/{y}{r}.png",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+    }
+  };
+
+  /* ---------------------------------------------------------------- */
+  /* dom                                                               */
+  /* ---------------------------------------------------------------- */
+
+  const $ = (id) => document.getElementById(id);
+  const screens = {
+    start: $("screen-start"),
+    loading: $("screen-loading"),
+    play: $("screen-play"),
+    reveal: $("screen-reveal"),
+    final: $("screen-final")
+  };
+
+  const el = {
+    play: $("btn-play"), loadBar: $("load-bar"), loadStatus: $("load-status"),
+    loadTitle: $("loading-title"), loadCancel: $("btn-load-cancel"),
+    photo: $("photo"), photoCredit: $("photo-credit"), photoNav: $("photo-nav"),
+    photoPrev: $("photo-prev"), photoNext: $("photo-next"), photoCount: $("photo-count"),
+    roundPill: $("round-pill"), timer: $("timer"), timerRing: $("timer-ring"),
+    timerNum: $("timer-num"), scoreTotal: $("score-total"),
+    mappanel: $("mappanel"), mapToggle: $("map-toggle"),
+    guessHint: $("guess-hint"), guessBtn: $("btn-guess"),
+    revealEyebrow: $("reveal-eyebrow"), revealName: $("reveal-name"),
+    revealCountry: $("reveal-country"), revealPoints: $("reveal-points"),
+    revealDistance: $("reveal-distance"), revealFact: $("reveal-fact"),
+    revealCredit: $("reveal-credit"), revealThumb: $("reveal-thumb"),
+    nextBtn: $("btn-next"),
+    finalPoints: $("final-points"), finalMax: $("final-max"),
+    finalRank: $("final-rank"), breakdown: $("breakdown"),
+    again: $("btn-again"), home: $("btn-home"), best: $("best-line"),
+    toast: $("toast")
+  };
+
+  /* ---------------------------------------------------------------- */
+  /* state                                                             */
+  /* ---------------------------------------------------------------- */
+
+  const settings = { rounds: 5, labels: "on" };
+
+  let game = null;      // { beaches, results, index, total }
+  let round = null;     // { beach, photos, photoIndex, guess, deadline }
+  let ticker = null;
+  let loadAbandoned = false;
+
+  let guessMap = null, resultMap = null;
+  let guessLayer = null, guessMarker = null;
+  let resultBase = null, resultLayer = null;
+  let framing = false;     // true while we move the map ourselves
+  let playerFramed = false; // the player has zoomed/panned, so stop auto-framing
+
+  /* ---------------------------------------------------------------- */
+  /* helpers                                                           */
+  /* ---------------------------------------------------------------- */
+
+  function show(name) {
+    Object.values(screens).forEach((s) => s.classList.remove("is-active"));
+    screens[name].classList.add("is-active");
+  }
+
+  function toast(message, ms) {
+    el.toast.textContent = message;
+    el.toast.hidden = false;
+    clearTimeout(toast._t);
+    toast._t = setTimeout(() => { el.toast.hidden = true; }, ms || 4200);
+  }
+
+  const rad = (d) => (d * Math.PI) / 180;
+
+  /** Great-circle distance in km. */
+  function distanceKm(a, b) {
+    const R = 6371;
+    const dLat = rad(b.lat - a.lat);
+    const dLng = rad(b.lng - a.lng);
+    const h = Math.sin(dLat / 2) ** 2 +
+      Math.cos(rad(a.lat)) * Math.cos(rad(b.lat)) * Math.sin(dLng / 2) ** 2;
+    return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+  }
+
+  function scoreFor(km) {
+    if (km <= PERFECT_KM) return MAX_POINTS;
+    return Math.round(MAX_POINTS * Math.exp(-km / DECAY_KM));
+  }
+
+  function formatDistance(km) {
+    if (km < 1) return Math.round(km * 1000) + " m";
+    if (km < 100) return km.toFixed(1) + " km";
+    return Math.round(km).toLocaleString() + " km";
+  }
+
+  const nf = (n) => n.toLocaleString();
+
+  /** Leaflet lets you pan past the date line; fold the guess back on to Earth. */
+  function normalise(latlng) {
+    let lng = ((latlng.lng + 180) % 360 + 360) % 360 - 180;
+    return { lat: latlng.lat, lng: lng };
+  }
+
+  function shuffled(list) {
+    const copy = list.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  /** Picks the round line-up, avoiding two beaches that sit on top of each other. */
+  function pickBeaches(count) {
+    const pool = shuffled(BEACHES);
+    const chosen = [];
+    for (const candidate of pool) {
+      if (chosen.length >= count) break;
+      const clashes = chosen.some((c) => distanceKm(c, candidate) < MIN_SEPARATION_KM);
+      if (!clashes) chosen.push(candidate);
+    }
+    // Tiny pools could come up short; top up rather than run a shorter game.
+    for (const candidate of pool) {
+      if (chosen.length >= count) break;
+      if (!chosen.includes(candidate)) chosen.push(candidate);
+    }
+    return chosen.slice(0, count);
+  }
+
+  function pinIcon(kind) {
+    return L.divIcon({
+      className: "",
+      html: '<div class="pin pin--' + kind + '"></div>',
+      iconSize: [26, 26],
+      iconAnchor: [13, 26]
+    });
+  }
+
+  function creditHTML(photo, prefix) {
+    const c = photo.credit;
+    const licence = c.licenseUrl
+      ? '<a href="' + c.licenseUrl + '" target="_blank" rel="noopener">' + escapeHTML(c.license) + "</a>"
+      : escapeHTML(c.license);
+    return (prefix || "Photo") + ": " +
+      '<a href="' + c.pageUrl + '" target="_blank" rel="noopener">' + escapeHTML(c.title) + "</a>" +
+      " by " + escapeHTML(c.author) + " · " + licence + " · via Wikimedia Commons";
+  }
+
+  function escapeHTML(text) {
+    const div = document.createElement("div");
+    div.textContent = text == null ? "" : String(text);
+    return div.innerHTML;
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* maps                                                              */
+  /* ---------------------------------------------------------------- */
+
+  function baseLayer() {
+    const conf = TILES[settings.labels] || TILES.on;
+    return L.tileLayer(conf.url, {
+      attribution: conf.attribution,
+      subdomains: "abcd",
+      maxZoom: 18,
+      minZoom: 0,
+      noWrap: false
+    });
+  }
+
+  function buildGuessMap() {
+    guessMap = L.map("guess-map", {
+      worldCopyJump: true,
+      zoomControl: true,
+      attributionControl: true,
+      minZoom: 0
+    }).setView([20, 0], 1);
+    guessLayer = baseLayer().addTo(guessMap);
+
+    // Once the player zooms or pans, their view is theirs — we stop reframing.
+    guessMap.on("zoomstart movestart", () => { if (!framing) playerFramed = true; });
+
+    guessMap.on("click", (e) => {
+      if (!round || round.submitted) return;
+      const pos = normalise(e.latlng);
+      if (guessMarker) {
+        guessMarker.setLatLng(e.latlng);
+      } else {
+        guessMarker = L.marker(e.latlng, {
+          icon: pinIcon("guess"), draggable: true, keyboard: false
+        }).addTo(guessMap);
+        guessMarker.on("dragend", () => {
+          round.guess = normalise(guessMarker.getLatLng());
+        });
+      }
+      round.guess = pos;
+      el.guessBtn.disabled = false;
+      el.guessHint.textContent = "Drag the pin to fine-tune, then guess";
+    });
+  }
+
+  function buildResultMap() {
+    resultMap = L.map("result-map", {
+      worldCopyJump: true,
+      zoomControl: true,
+      attributionControl: true,
+      minZoom: 0
+    }).setView([20, 0], 2);
+    resultBase = baseLayer().addTo(resultMap);
+  }
+
+  /** Swaps tiles when the player changes the labels setting between games. */
+  function refreshTiles() {
+    if (guessMap) { guessMap.removeLayer(guessLayer); guessLayer = baseLayer().addTo(guessMap); }
+    if (resultMap) { resultMap.removeLayer(resultBase); resultBase = baseLayer().addTo(resultMap); }
+  }
+
+  /** Fits the whole world to whatever size the panel currently is. */
+  function frameWorld() {
+    framing = true;
+    guessMap.invalidateSize({ animate: false });
+    guessMap.fitBounds(WORLD_VIEW, { animate: false });
+    framing = false;
+  }
+
+  function resetGuessMap() {
+    if (guessMarker) { guessMap.removeLayer(guessMarker); guessMarker = null; }
+    playerFramed = false;
+    frameWorld();
+    el.guessBtn.disabled = true;
+    el.guessHint.textContent = "Click the map to place your pin";
+    setMapOpen(false);
+  }
+
+  function setMapOpen(open) {
+    el.mappanel.classList.toggle("is-open", open);
+    el.mapToggle.setAttribute("aria-expanded", String(open));
+    el.mapToggle.setAttribute("aria-label", open ? "Shrink map" : "Expand map");
+    // The panel animates open, so resize once it has settled.
+    setTimeout(() => {
+      if (!guessMap) return;
+      if (playerFramed) guessMap.invalidateSize({ animate: false });
+      else frameWorld();
+    }, 300);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* loading a game                                                    */
+  /* ---------------------------------------------------------------- */
+
+  /**
+   * Resolves photos for the queued beaches a few at a time and stops as soon as
+   * `wanted` of them have come back — resolving them one by one made a
+   * ten-round game take far too long to start.
+   */
+  async function loadRounds(queue, wanted) {
+    const ready = [];
+    let next = 0;
+
+    const progress = () => {
+      el.loadBar.style.width = Math.min(100, Math.round((ready.length / wanted) * 100)) + "%";
+      el.loadStatus.textContent = ready.length >= wanted
+        ? "Ready."
+        : "Found " + ready.length + " of " + wanted + " beaches…";
+    };
+
+    async function worker() {
+      while (next < queue.length && ready.length < wanted && !loadAbandoned) {
+        const beach = queue[next++];
+        try {
+          const photos = await PhotoService.getPhotos(beach);
+          if (ready.length < wanted) ready.push({ beach: beach, photos: photos });
+        } catch (err) {
+          console.warn("skipping", beach.name, err.message);
+        }
+        progress();
+      }
+    }
+
+    await Promise.all([worker(), worker(), worker(), worker()]);
+    return ready.slice(0, wanted);
+  }
+
+  async function startGame() {
+    loadAbandoned = false;
+    show("loading");
+    el.loadTitle.textContent = "Scouting beaches…";
+    el.loadBar.style.width = "0%";
+    el.loadStatus.textContent = "Contacting Wikimedia…";
+
+    const wanted = settings.rounds;
+    const queue = pickBeaches(Math.min(BEACHES.length, wanted + 6)); // spares for failures
+    const ready = await loadRounds(queue, wanted);
+
+    if (loadAbandoned) return;
+
+    if (ready.length === 0) {
+      show("start");
+      toast("Couldn't reach Wikimedia to load beach photos. Check your connection and try again.", 7000);
+      return;
+    }
+    if (ready.length < wanted) {
+      toast("Only found photos for " + ready.length + " beaches right now — playing a shorter game.", 5000);
+    }
+
+    game = { rounds: ready, results: [], index: 0, total: 0 };
+    el.scoreTotal.textContent = "0";
+    show("play");
+    if (!guessMap) buildGuessMap();
+    beginRound();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* a round                                                           */
+  /* ---------------------------------------------------------------- */
+
+  function beginRound() {
+    const entry = game.rounds[game.index];
+    round = {
+      beach: entry.beach,
+      photos: entry.photos,
+      photoIndex: 0,
+      guess: null,
+      submitted: false
+    };
+
+    el.roundPill.textContent = "Round " + (game.index + 1) + " / " + game.rounds.length;
+    showPhoto(0);
+    resetGuessMap();
+    startTimer();
+
+    // Warm the next round's photo while this one is being played.
+    const next = game.rounds[game.index + 1];
+    if (next) PhotoService.preload(next.photos[0].src).catch(() => {});
+  }
+
+  function showPhoto(i) {
+    const photos = round.photos;
+    round.photoIndex = (i + photos.length) % photos.length;
+    const photo = photos[round.photoIndex];
+
+    el.photo.onerror = () => {
+      el.photo.onerror = null;
+      if (photos.length > 1) {
+        round.photos = photos.filter((p) => p !== photo);
+        showPhoto(round.photoIndex);
+      }
+    };
+    el.photo.src = photo.src;
+    el.photo.alt = "An unidentified beach — round " + (game.index + 1);
+    el.photoCredit.innerHTML = creditHTML(photo);
+
+    const many = photos.length > 1;
+    el.photoNav.hidden = !many;
+    el.photoCount.textContent = (round.photoIndex + 1) + " / " + photos.length;
+  }
+
+  function startTimer() {
+    const ring = el.timerRing;
+    const circumference = 2 * Math.PI * 19;
+    ring.style.strokeDasharray = circumference;
+    ring.style.strokeDashoffset = "0";
+    el.timer.classList.remove("is-warn", "is-urgent");
+    el.timerNum.textContent = ROUND_SECONDS;
+
+    round.deadline = Date.now() + ROUND_SECONDS * 1000;
+    clearInterval(ticker);
+    ticker = setInterval(tick, 200);
+  }
+
+  function tick() {
+    if (!round || round.submitted) return;
+    const remaining = Math.max(0, round.deadline - Date.now());
+    const seconds = Math.ceil(remaining / 1000);
+    el.timerNum.textContent = seconds;
+
+    const circumference = 2 * Math.PI * 19;
+    const fraction = 1 - remaining / (ROUND_SECONDS * 1000);
+    el.timerRing.style.strokeDashoffset = (circumference * fraction).toFixed(2);
+
+    el.timer.classList.toggle("is-warn", seconds <= 20 && seconds > 10);
+    el.timer.classList.toggle("is-urgent", seconds <= 10);
+
+    if (remaining <= 0) submitGuess(true);
+  }
+
+  function submitGuess(timedOut) {
+    if (!round || round.submitted) return;
+    round.submitted = true;
+    clearInterval(ticker);
+
+    const truth = { lat: round.beach.lat, lng: round.beach.lng };
+    const guess = round.guess;
+    const km = guess ? distanceKm(guess, truth) : null;
+    const points = guess ? scoreFor(km) : 0;
+
+    game.total += points;
+    game.results.push({
+      beach: round.beach,
+      photo: round.photos[round.photoIndex],
+      guess: guess,
+      km: km,
+      points: points,
+      timedOut: !!timedOut && !guess
+    });
+    el.scoreTotal.textContent = nf(game.total);
+
+    renderReveal(game.results[game.results.length - 1]);
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* reveal                                                            */
+  /* ---------------------------------------------------------------- */
+
+  function renderReveal(result) {
+    show("reveal");
+    if (!resultMap) buildResultMap();
+
+    if (resultLayer) resultMap.removeLayer(resultLayer);
+    resultLayer = L.layerGroup().addTo(resultMap);
+
+    const truth = [result.beach.lat, result.beach.lng];
+    L.marker(truth, { icon: pinIcon("truth") })
+      .addTo(resultLayer)
+      .bindTooltip(result.beach.name, { direction: "top", offset: [0, -24] });
+
+    if (result.guess) {
+      const guess = [result.guess.lat, result.guess.lng];
+      L.marker(guess, { icon: pinIcon("guess") })
+        .addTo(resultLayer)
+        .bindTooltip("Your guess", { direction: "top", offset: [0, -24] });
+      L.polyline([guess, truth], {
+        color: "#ff7a59", weight: 2, dashArray: "6 8", opacity: 0.9
+      }).addTo(resultLayer);
+    }
+
+    resultMap.invalidateSize({ animate: false });
+    if (result.guess) {
+      resultMap.fitBounds(
+        L.latLngBounds([[result.guess.lat, result.guess.lng], truth]),
+        { padding: [70, 70], maxZoom: 8, animate: false }
+      );
+    } else {
+      resultMap.setView(truth, 5, { animate: false });
+    }
+
+    el.revealEyebrow.textContent = "Round " + (game.index + 1) + " of " + game.rounds.length;
+    el.revealName.textContent = result.beach.name;
+    el.revealCountry.textContent = result.beach.country;
+    el.revealPoints.textContent = nf(result.points);
+    el.revealDistance.textContent = result.guess ? formatDistance(result.km) : "no guess";
+    el.revealFact.textContent = result.timedOut
+      ? "Time ran out before you dropped a pin. " + result.beach.fact
+      : result.beach.fact;
+    el.revealThumb.hidden = false;
+    el.revealThumb.src = result.photo.src;
+    el.revealThumb.alt = result.beach.name + ", " + result.beach.country;
+    el.revealCredit.innerHTML = creditHTML(result.photo);
+
+    const last = game.index === game.rounds.length - 1;
+    el.nextBtn.textContent = last ? "See final score" : "Next round";
+    el.nextBtn.focus();
+  }
+
+  function advance() {
+    if (game.index === game.rounds.length - 1) return renderFinal();
+    game.index++;
+    show("play");
+    beginRound();
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* final                                                             */
+  /* ---------------------------------------------------------------- */
+
+  function rankFor(pct) {
+    if (pct >= 0.92) return "Cartographer of the coast";
+    if (pct >= 0.75) return "Seasoned navigator";
+    if (pct >= 0.55) return "Confident beachcomber";
+    if (pct >= 0.35) return "Holiday browser";
+    if (pct > 0) return "Lost at sea";
+    return "Still packing the suitcase";
+  }
+
+  function renderFinal() {
+    show("final");
+    const max = game.rounds.length * MAX_POINTS;
+    el.finalPoints.textContent = nf(game.total);
+    el.finalMax.textContent = "/ " + nf(max);
+    el.finalRank.textContent = rankFor(game.total / max);
+
+    el.breakdown.innerHTML = "";
+    game.results.forEach((r, i) => {
+      const li = document.createElement("li");
+      const n = document.createElement("span");
+      n.className = "n";
+      n.textContent = i + 1;
+      const name = document.createElement("span");
+      name.textContent = r.beach.name;
+      const d = document.createElement("span");
+      d.className = "d";
+      d.textContent = r.guess ? formatDistance(r.km) : "no guess";
+      const p = document.createElement("span");
+      p.className = "p";
+      p.textContent = nf(r.points);
+      li.append(n, name, d, p);
+      el.breakdown.appendChild(li);
+    });
+
+    saveBest(game.total, max);
+  }
+
+  function saveBest(total, max) {
+    try {
+      const pct = total / max;
+      const prev = JSON.parse(localStorage.getItem(BEST_KEY) || "null");
+      if (!prev || pct > prev.pct) {
+        localStorage.setItem(BEST_KEY, JSON.stringify({ total: total, max: max, pct: pct }));
+      }
+    } catch (err) { /* private browsing — best score just won't stick */ }
+    renderBest();
+  }
+
+  function renderBest() {
+    try {
+      const best = JSON.parse(localStorage.getItem(BEST_KEY) || "null");
+      if (!best) { el.best.hidden = true; return; }
+      el.best.hidden = false;
+      el.best.textContent = "Personal best: " + nf(best.total) + " / " + nf(best.max);
+    } catch (err) { el.best.hidden = true; }
+  }
+
+  /* ---------------------------------------------------------------- */
+  /* wiring                                                            */
+  /* ---------------------------------------------------------------- */
+
+  document.querySelectorAll(".segmented").forEach((group) => {
+    group.addEventListener("click", (e) => {
+      const btn = e.target.closest(".seg");
+      if (!btn) return;
+      group.querySelectorAll(".seg").forEach((b) => {
+        b.classList.remove("is-on");
+        b.setAttribute("aria-checked", "false");
+      });
+      btn.classList.add("is-on");
+      btn.setAttribute("aria-checked", "true");
+      if (btn.dataset.rounds) settings.rounds = Number(btn.dataset.rounds);
+      if (btn.dataset.labels) { settings.labels = btn.dataset.labels; refreshTiles(); }
+    });
+  });
+
+  el.play.addEventListener("click", startGame);
+  el.again.addEventListener("click", startGame);
+  el.home.addEventListener("click", () => show("start"));
+  el.nextBtn.addEventListener("click", advance);
+  el.guessBtn.addEventListener("click", () => submitGuess(false));
+  el.mapToggle.addEventListener("click", () => {
+    setMapOpen(!el.mappanel.classList.contains("is-open"));
+  });
+  el.loadCancel.addEventListener("click", () => { loadAbandoned = true; show("start"); });
+  el.photoPrev.addEventListener("click", () => showPhoto(round.photoIndex - 1));
+  el.photoNext.addEventListener("click", () => showPhoto(round.photoIndex + 1));
+
+  document.addEventListener("keydown", (e) => {
+    if (screens.play.classList.contains("is-active")) {
+      if (e.key === "Enter" && !el.guessBtn.disabled) { e.preventDefault(); submitGuess(false); }
+      if (e.key === "m" || e.key === "M") setMapOpen(!el.mappanel.classList.contains("is-open"));
+      if (e.key === "Escape") setMapOpen(false);
+      if (e.key === "ArrowLeft" && round && round.photos.length > 1) showPhoto(round.photoIndex - 1);
+      if (e.key === "ArrowRight" && round && round.photos.length > 1) showPhoto(round.photoIndex + 1);
+    } else if (screens.reveal.classList.contains("is-active") && e.key === "Enter") {
+      e.preventDefault();
+      advance();
+    }
+  });
+
+  // A tab-out pauses nothing, but coming back should not show a stale clock.
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden && round && !round.submitted) tick();
+  });
+
+  renderBest();
+})();

@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Wave Guesser — guess the beach</title>
+<meta name="description" content="A geo-guessing game for beaches. You get a photo of a beach somewhere in the world and 60 seconds to drop a pin on the map.">
+<meta name="theme-color" content="#04141d">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏖️</text></svg>">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="assets/css/style.css">
+</head>
+<body>
+
+<!-- ─────────────────────────  START  ───────────────────────── -->
+<section class="screen screen--start is-active" id="screen-start">
+  <div class="start-card">
+    <h1 class="logo">Wave<span>Guesser</span></h1>
+    <p class="tagline">Somewhere on Earth, this is the view from the sand.<br>You have <strong>60 seconds</strong> to say where.</p>
+
+    <ol class="how">
+      <li><span>1</span> Study the beach photo.</li>
+      <li><span>2</span> Drop a pin on the world map.</li>
+      <li><span>3</span> The closer you land, the more you score — up to 5,000 a round.</li>
+    </ol>
+
+    <div class="options">
+      <fieldset class="opt">
+        <legend>Rounds</legend>
+        <div class="segmented" role="radiogroup" aria-label="Number of rounds">
+          <button type="button" role="radio" class="seg" data-rounds="3">3</button>
+          <button type="button" role="radio" class="seg is-on" data-rounds="5" aria-checked="true">5</button>
+          <button type="button" role="radio" class="seg" data-rounds="10">10</button>
+        </div>
+      </fieldset>
+
+      <fieldset class="opt">
+        <legend>Map labels</legend>
+        <div class="segmented" role="radiogroup" aria-label="Map difficulty">
+          <button type="button" role="radio" class="seg is-on" data-labels="on" aria-checked="true">On</button>
+          <button type="button" role="radio" class="seg" data-labels="off">Off <em>hard</em></button>
+        </div>
+      </fieldset>
+    </div>
+
+    <button class="btn btn--primary btn--big" id="btn-play">Start guessing</button>
+    <p class="best" id="best-line" hidden></p>
+    <p class="credit-note">Photos are loaded live from Wikipedia &amp; Wikimedia Commons. Map data © OpenStreetMap contributors.</p>
+  </div>
+</section>
+
+<!-- ────────────────────────  LOADING  ──────────────────────── -->
+<section class="screen screen--loading" id="screen-loading">
+  <div class="loading-card">
+    <div class="waves" aria-hidden="true"><span></span><span></span><span></span></div>
+    <h2 id="loading-title">Scouting beaches…</h2>
+    <div class="bar"><div class="bar__fill" id="load-bar"></div></div>
+    <p class="muted" id="load-status">Contacting Wikimedia…</p>
+    <button class="btn btn--ghost" id="btn-load-cancel">Cancel</button>
+  </div>
+</section>
+
+<!-- ──────────────────────────  PLAY  ───────────────────────── -->
+<section class="screen screen--play" id="screen-play">
+  <div class="stage">
+    <img class="stage__img" id="photo" alt="Photograph of a beach you have to identify">
+    <div class="stage__scrim"></div>
+
+    <div class="photo-nav" id="photo-nav" hidden>
+      <button class="iconbtn" id="photo-prev" aria-label="Previous photo of this beach">‹</button>
+      <span id="photo-count">1 / 1</span>
+      <button class="iconbtn" id="photo-next" aria-label="Next photo of this beach">›</button>
+    </div>
+
+    <p class="photo-credit" id="photo-credit"></p>
+  </div>
+
+  <header class="hud">
+    <div class="hud__pill" id="round-pill">Round 1 / 5</div>
+    <div class="timer" id="timer" role="timer" aria-live="off">
+      <svg viewBox="0 0 44 44" aria-hidden="true">
+        <circle class="timer__track" cx="22" cy="22" r="19"></circle>
+        <circle class="timer__ring" id="timer-ring" cx="22" cy="22" r="19"></circle>
+      </svg>
+      <span id="timer-num">60</span>
+    </div>
+    <div class="hud__pill hud__pill--score">Score <b id="score-total">0</b></div>
+  </header>
+
+  <div class="mappanel" id="mappanel">
+    <button class="mappanel__grip" id="map-toggle" aria-label="Expand map" aria-expanded="false"></button>
+    <div class="mappanel__map" id="guess-map"></div>
+    <div class="mappanel__foot">
+      <p class="hint" id="guess-hint">Click the map to place your pin</p>
+      <button class="btn btn--primary" id="btn-guess" disabled>Guess</button>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────  REVEAL  ──────────────────────── -->
+<section class="screen screen--reveal" id="screen-reveal">
+  <div class="reveal-map" id="result-map"></div>
+  <div class="reveal-card">
+    <div class="reveal-head">
+      <p class="reveal-eyebrow" id="reveal-eyebrow">Round 1</p>
+      <h2 id="reveal-name">Beach</h2>
+      <p class="reveal-country" id="reveal-country"></p>
+    </div>
+    <img class="reveal-thumb" id="reveal-thumb" alt="" hidden>
+    <div class="reveal-stats">
+      <div><b id="reveal-points">0</b><span>points</span></div>
+      <div><b id="reveal-distance">—</b><span>away</span></div>
+    </div>
+    <p class="reveal-fact" id="reveal-fact"></p>
+    <p class="reveal-credit" id="reveal-credit"></p>
+    <button class="btn btn--primary btn--big" id="btn-next">Next round</button>
+  </div>
+</section>
+
+<!-- ─────────────────────────  FINAL  ───────────────────────── -->
+<section class="screen screen--final" id="screen-final">
+  <div class="final-card">
+    <p class="reveal-eyebrow">Final score</p>
+    <h2 class="final-score"><b id="final-points">0</b><span id="final-max">/ 25,000</span></h2>
+    <p class="final-rank" id="final-rank"></p>
+    <ul class="breakdown" id="breakdown"></ul>
+    <div class="final-actions">
+      <button class="btn btn--primary btn--big" id="btn-again">Play again</button>
+      <button class="btn btn--ghost" id="btn-home">Change settings</button>
+    </div>
+  </div>
+</section>
+
+<!-- ─────────────────────────  ERROR  ───────────────────────── -->
+<div class="toast" id="toast" hidden></div>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="assets/js/beaches.js"></script>
+<script src="assets/js/photos.js"></script>
+<script src="assets/js/game.js"></script>
+</body>
+</html>
