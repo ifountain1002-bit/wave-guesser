@@ -18,10 +18,43 @@ Any static file server works. Opening `index.html` straight off the filesystem
 will *not* work, because browsers block the cross-origin API calls the game
 makes from a `file://` page.
 
-## Deploying
+## Putting it on GitHub Pages
 
-Push the repo and point GitHub Pages (or Netlify, Cloudflare Pages, S3 — any
-static host) at the project root. There is nothing to build.
+`.github/workflows/deploy.yml` publishes the site on every push to `main`
+(or `master`). There is no build step — the repo root is uploaded as-is.
+
+1. Create a repository on GitHub and push this code to it:
+
+   ```bash
+   git remote add origin https://github.com/YOUR-USERNAME/wave-guesser.git
+   git push -u origin main
+   ```
+
+2. In the repository, open **Settings → Pages** and set **Source** to
+   **GitHub Actions**. (This is a one-time switch. Leaving it on the default
+   "Deploy from a branch" will ignore the workflow.)
+
+3. Push anything, or run the workflow by hand from the **Actions** tab. When
+   it finishes, the site is at:
+
+   ```
+   https://YOUR-USERNAME.github.io/wave-guesser/
+   ```
+
+Every path in the project is relative, so the game works from that
+`/wave-guesser/` subpath as well as from a domain root — no base-URL setting
+to change.
+
+### Other hosts
+
+Netlify, Cloudflare Pages, Vercel, S3 and friends all work the same way:
+point them at the repo root, leave the build command empty, and set the
+publish directory to `.`.
+
+### A custom domain
+
+Add a `CNAME` file at the repo root containing the domain, point the domain's
+DNS at GitHub Pages, then set it under **Settings → Pages → Custom domain**.
 
 ## How it works
 
@@ -94,6 +127,7 @@ assets/js/beaches.js    the beach pool — name, country, lat/lng, article, triv
 assets/js/photos.js     Wikimedia lookup, filtering and preloading
 assets/js/game.js       rounds, timer, scoring, both Leaflet maps
 vendor/leaflet/         Leaflet 1.9.4 (BSD-2-Clause)
+.github/workflows/      GitHub Pages deployment
 ```
 
 ## Adding a beach
