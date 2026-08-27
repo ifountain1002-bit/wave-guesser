@@ -7,16 +7,33 @@ land, the more you score.
 It is a static site — three files of JavaScript, one stylesheet and a local
 copy of Leaflet. No build step, no server, no API keys.
 
-## Play locally
+## Play it
+
+### The downloadable single file
+
+`wave-guesser.html` is the whole game in one file — Leaflet, the styles, the
+beach list and the game code all inlined. Download it, double-click it, play.
+No server, no install, nothing to unpack.
+
+It still needs an internet connection, because the beach photos come from
+Wikimedia and the map tiles from OpenStreetMap. Both allow the requests from a
+local file, so opening it straight off your disk works.
+
+Rebuild it after changing anything under `assets/`:
+
+```bash
+python3 tools/build-single-file.py
+```
+
+### From the source tree
 
 ```bash
 python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
-Any static file server works. Opening `index.html` straight off the filesystem
-will *not* work, because browsers block the cross-origin API calls the game
-makes from a `file://` page.
+Any static file server works. Opening `index.html` off the filesystem works
+too, but the single-file build above is the tidier way to do that.
 
 ## Putting it on GitHub Pages
 
@@ -122,13 +139,18 @@ Letting the clock run out with no pin scores zero. Your best game is kept in
 
 ```
 index.html              markup for all five screens
+wave-guesser.html       generated single-file build (see tools/)
 assets/css/style.css    all styling
 assets/js/beaches.js    the beach pool — name, country, lat/lng, article, trivia
 assets/js/photos.js     Wikimedia lookup, filtering and preloading
 assets/js/game.js       rounds, timer, scoring, both Leaflet maps
 vendor/leaflet/         Leaflet 1.9.4 (BSD-2-Clause)
+tools/                  the single-file bundler
 .github/workflows/      GitHub Pages deployment
 ```
+
+`wave-guesser.html` is generated. Edit the sources under `assets/`, then run
+the bundler — don't edit the bundle directly.
 
 ## Adding a beach
 
