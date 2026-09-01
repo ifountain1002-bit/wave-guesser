@@ -201,6 +201,13 @@ button { font: inherit; color: inherit; }
   color: var(--surf);
 }
 
+.pool-note {
+  margin: 1.1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.pool-note b { color: var(--sand); }
+
 .best { margin: 1rem 0 0; color: var(--sand); font-size: 0.9rem; }
 .credit-note {
   margin: 1.6rem 0 0;
@@ -309,6 +316,7 @@ button { font: inherit; color: inherit; }
 /* ---------- HUD ---------- */
 
 .hud {
+  z-index: 700;
   position: absolute;
   top: 0;
   left: 0;
@@ -332,6 +340,21 @@ button { font: inherit; color: inherit; }
   white-space: nowrap;
 }
 .hud__pill--score b { color: var(--sand); margin-left: 0.25rem; }
+
+.hud__clock { display: grid; justify-items: center; gap: 0.25rem; pointer-events: none; }
+.timer-label {
+  margin: 0;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+.phase-guess .timer-label { color: var(--sand); }
 
 .timer {
   position: relative;
@@ -368,6 +391,8 @@ button { font: inherit; color: inherit; }
 /* ---------- map panel ---------- */
 
 .mappanel {
+  isolation: isolate;   /* contain Leaflet's own z-index stack */
+  z-index: 1;
   position: absolute;
   right: 1rem;
   bottom: 1rem;
@@ -427,12 +452,97 @@ button { font: inherit; color: inherit; }
 .hint { flex: 1; margin: 0; font-size: 0.78rem; color: var(--muted); }
 .mappanel__foot .btn { padding: 0.55rem 1.3rem; }
 
+
+/* ============================================================
+   ROUND PHASES
+   The look phase is photo-only; the guess phase hands the whole
+   screen to the map and parks the photo in the corner.
+   ============================================================ */
+
+.stage__skip {
+  position: absolute;
+  left: 50%;
+  bottom: 3.6rem;
+  transform: translateX(-50%);
+  z-index: 620;
+  white-space: nowrap;
+}
+.stage__peek {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 0 0 0 12px;
+  background: rgba(4, 20, 29, 0.72);
+  color: var(--foam);
+  cursor: pointer;
+  display: none;
+  z-index: 2;
+}
+.stage__peek::before { content: "⤢"; font-size: 0.95rem; }
+.is-peeking .stage__peek::before { content: "⤡"; }
+
+/* --- look phase --- */
+.phase-look .mappanel { display: none; }
+.phase-look .photo-credit { opacity: 0.75; }
+
+/* --- guess phase --- */
+.phase-guess .stage__skip { display: none; }
+.phase-guess .stage__scrim { display: none; }
+.phase-guess .photo-credit { display: none; }
+.phase-guess .mappanel__grip { display: none; }
+
+/* Full-screen map puts the zoom control under the round pill; drop it clear. */
+.phase-guess .leaflet-top.leaflet-left .leaflet-control { margin-top: 66px; }
+
+.phase-guess .mappanel {
+  inset: 0;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.phase-guess .stage {
+  inset: auto auto 5.2rem 1rem;
+  width: 300px;
+  height: 195px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  z-index: 600;
+  transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+              height 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.phase-guess .stage__peek { display: grid; place-items: center; }
+.phase-guess.is-peeking .stage {
+  width: min(52vw, 760px);
+  height: min(56vh, 520px);
+}
+.phase-guess .photo-nav {
+  bottom: 0.4rem;
+  transform: translateX(-50%) scale(0.82);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.phase-guess.is-peeking .photo-nav {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) scale(1);
+}
+
 /* ============================================================
    REVEAL
    ============================================================ */
 
 .screen--reveal.is-active { display: grid; grid-template-columns: 1fr min(400px, 34vw); }
-.reveal-map { height: 100%; background: var(--deep-2); }
+.reveal-map { height: 100%; background: var(--deep-2); isolation: isolate; }
 .reveal-card {
   background: var(--panel-solid);
   border-left: 1px solid var(--line);
@@ -595,6 +705,17 @@ button { font: inherit; color: inherit; }
   /* Stack the credit and the photo pager instead of letting them collide. */
   .photo-credit { left: 0.75rem; right: 0.75rem; bottom: 0.5rem; max-width: none; font-size: 0.62rem; }
   .photo-nav { bottom: 2.9rem; }
+
+  .phase-look .stage { bottom: 0; }
+  .stage__skip { bottom: 4.4rem; width: calc(100% - 2rem); }
+  .phase-guess .stage {
+    inset: auto auto 5rem 0.75rem;
+    width: 40vw;
+    max-width: 190px;
+    height: 26vw;
+    max-height: 125px;
+  }
+  .phase-guess.is-peeking .stage { width: calc(100% - 1.5rem); height: 42vh; }
 
   .screen--reveal.is-active { grid-template-columns: 1fr; grid-template-rows: 38vh 1fr; }
   .reveal-card { border-left: 0; border-top: 1px solid var(--line); }

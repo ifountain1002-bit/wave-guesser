@@ -881,6 +881,13 @@ button { font: inherit; color: inherit; }
   color: var(--surf);
 }
 
+.pool-note {
+  margin: 1.1rem 0 0;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.pool-note b { color: var(--sand); }
+
 .best { margin: 1rem 0 0; color: var(--sand); font-size: 0.9rem; }
 .credit-note {
   margin: 1.6rem 0 0;
@@ -989,6 +996,7 @@ button { font: inherit; color: inherit; }
 /* ---------- HUD ---------- */
 
 .hud {
+  z-index: 700;
   position: absolute;
   top: 0;
   left: 0;
@@ -1012,6 +1020,21 @@ button { font: inherit; color: inherit; }
   white-space: nowrap;
 }
 .hud__pill--score b { color: var(--sand); margin-left: 0.25rem; }
+
+.hud__clock { display: grid; justify-items: center; gap: 0.25rem; pointer-events: none; }
+.timer-label {
+  margin: 0;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 0.15rem 0.6rem;
+}
+.phase-guess .timer-label { color: var(--sand); }
 
 .timer {
   position: relative;
@@ -1048,6 +1071,8 @@ button { font: inherit; color: inherit; }
 /* ---------- map panel ---------- */
 
 .mappanel {
+  isolation: isolate;   /* contain Leaflet's own z-index stack */
+  z-index: 1;
   position: absolute;
   right: 1rem;
   bottom: 1rem;
@@ -1107,12 +1132,97 @@ button { font: inherit; color: inherit; }
 .hint { flex: 1; margin: 0; font-size: 0.78rem; color: var(--muted); }
 .mappanel__foot .btn { padding: 0.55rem 1.3rem; }
 
+
+/* ============================================================
+   ROUND PHASES
+   The look phase is photo-only; the guess phase hands the whole
+   screen to the map and parks the photo in the corner.
+   ============================================================ */
+
+.stage__skip {
+  position: absolute;
+  left: 50%;
+  bottom: 3.6rem;
+  transform: translateX(-50%);
+  z-index: 620;
+  white-space: nowrap;
+}
+.stage__peek {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 0 0 0 12px;
+  background: rgba(4, 20, 29, 0.72);
+  color: var(--foam);
+  cursor: pointer;
+  display: none;
+  z-index: 2;
+}
+.stage__peek::before { content: "⤢"; font-size: 0.95rem; }
+.is-peeking .stage__peek::before { content: "⤡"; }
+
+/* --- look phase --- */
+.phase-look .mappanel { display: none; }
+.phase-look .photo-credit { opacity: 0.75; }
+
+/* --- guess phase --- */
+.phase-guess .stage__skip { display: none; }
+.phase-guess .stage__scrim { display: none; }
+.phase-guess .photo-credit { display: none; }
+.phase-guess .mappanel__grip { display: none; }
+
+/* Full-screen map puts the zoom control under the round pill; drop it clear. */
+.phase-guess .leaflet-top.leaflet-left .leaflet-control { margin-top: 66px; }
+
+.phase-guess .mappanel {
+  inset: 0;
+  width: auto;
+  height: auto;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  opacity: 1;
+}
+
+.phase-guess .stage {
+  inset: auto auto 5.2rem 1rem;
+  width: 300px;
+  height: 195px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow);
+  z-index: 600;
+  transition: width 0.25s cubic-bezier(0.2, 0.8, 0.2, 1),
+              height 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+.phase-guess .stage__peek { display: grid; place-items: center; }
+.phase-guess.is-peeking .stage {
+  width: min(52vw, 760px);
+  height: min(56vh, 520px);
+}
+.phase-guess .photo-nav {
+  bottom: 0.4rem;
+  transform: translateX(-50%) scale(0.82);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+.phase-guess.is-peeking .photo-nav {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(-50%) scale(1);
+}
+
 /* ============================================================
    REVEAL
    ============================================================ */
 
 .screen--reveal.is-active { display: grid; grid-template-columns: 1fr min(400px, 34vw); }
-.reveal-map { height: 100%; background: var(--deep-2); }
+.reveal-map { height: 100%; background: var(--deep-2); isolation: isolate; }
 .reveal-card {
   background: var(--panel-solid);
   border-left: 1px solid var(--line);
@@ -1276,6 +1386,17 @@ button { font: inherit; color: inherit; }
   .photo-credit { left: 0.75rem; right: 0.75rem; bottom: 0.5rem; max-width: none; font-size: 0.62rem; }
   .photo-nav { bottom: 2.9rem; }
 
+  .phase-look .stage { bottom: 0; }
+  .stage__skip { bottom: 4.4rem; width: calc(100% - 2rem); }
+  .phase-guess .stage {
+    inset: auto auto 5rem 0.75rem;
+    width: 40vw;
+    max-width: 190px;
+    height: 26vw;
+    max-height: 125px;
+  }
+  .phase-guess.is-peeking .stage { width: calc(100% - 1.5rem); height: 42vh; }
+
   .screen--reveal.is-active { grid-template-columns: 1fr; grid-template-rows: 38vh 1fr; }
   .reveal-card { border-left: 0; border-top: 1px solid var(--line); }
   .reveal-card .btn--big { margin-top: 0.6rem; }
@@ -1300,17 +1421,17 @@ button { font: inherit; color: inherit; }
 <section class="screen screen--start is-active" id="screen-start">
   <div class="start-card">
     <h1 class="logo">Wave<span>Guesser</span></h1>
-    <p class="tagline">Somewhere on Earth, this is the view from the sand.<br>You have <strong>60 seconds</strong> to say where.</p>
+    <p class="tagline">Somewhere on Earth, this is the view from the sand.<br><strong>One minute</strong> to study it, then <strong>30 seconds</strong> to say where.</p>
 
     <ol class="how">
-      <li><span>1</span> Study the beach photo.</li>
-      <li><span>2</span> Drop a pin on the world map.</li>
+      <li><span>1</span> Study the beach — 60 seconds, and several photos to flick through.</li>
+      <li><span>2</span> Go to the map, early if you're ready, and drop your pin within 30 seconds.</li>
       <li><span>3</span> The closer you land, the more you score — up to 5,000 a round.</li>
     </ol>
 
     <div class="options">
       <fieldset class="opt">
-        <legend>Rounds</legend>
+        <legend>Beaches per game</legend>
         <div class="segmented" role="radiogroup" aria-label="Number of rounds">
           <button type="button" role="radio" class="seg" data-rounds="3">3</button>
           <button type="button" role="radio" class="seg is-on" data-rounds="5" aria-checked="true">5</button>
@@ -1329,6 +1450,7 @@ button { font: inherit; color: inherit; }
 
     <button class="btn btn--primary btn--big" id="btn-play">Start guessing</button>
     <p class="best" id="best-line" hidden></p>
+    <p class="pool-note" id="pool-note"></p>
     <p class="credit-note">Photos are loaded live from Wikipedia &amp; Wikimedia Commons. Map data © OpenStreetMap contributors.</p>
   </div>
 </section>
@@ -1356,17 +1478,23 @@ button { font: inherit; color: inherit; }
       <button class="iconbtn" id="photo-next" aria-label="Next photo of this beach">›</button>
     </div>
 
-    <p class="photo-credit" id="photo-credit"></p>
+    <p class="photo-credit" id="photo-credit">Photo from Wikimedia Commons &middot; full credit after you guess</p>
+
+    <button class="btn btn--primary stage__skip" id="btn-to-map">I'm ready &mdash; go to the map &rarr;</button>
+    <button class="stage__peek" id="stage-peek" aria-label="Enlarge the photo" aria-expanded="false"></button>
   </div>
 
   <header class="hud">
     <div class="hud__pill" id="round-pill">Round 1 / 5</div>
-    <div class="timer" id="timer" role="timer" aria-live="off">
-      <svg viewBox="0 0 44 44" aria-hidden="true">
-        <circle class="timer__track" cx="22" cy="22" r="19"></circle>
-        <circle class="timer__ring" id="timer-ring" cx="22" cy="22" r="19"></circle>
-      </svg>
-      <span id="timer-num">60</span>
+    <div class="hud__clock">
+      <div class="timer" id="timer" role="timer" aria-live="off">
+        <svg viewBox="0 0 44 44" aria-hidden="true">
+          <circle class="timer__track" cx="22" cy="22" r="19"></circle>
+          <circle class="timer__ring" id="timer-ring" cx="22" cy="22" r="19"></circle>
+        </svg>
+        <span id="timer-num">60</span>
+      </div>
+      <p class="timer-label" id="timer-label">Look</p>
     </div>
     <div class="hud__pill hud__pill--score">Score <b id="score-total">0</b></div>
   </header>
@@ -1433,143 +1561,489 @@ button { font: inherit; color: inherit; }
  * Each entry is the ground truth for one round:
  *   name      display name shown after the guess
  *   country   shown after the guess
- *   lat/lng   scoring truth — the distance from the player's pin is measured to here
+ *   lat/lng   scoring truth - the distance from the player's pin is measured to here
  *   wiki      English Wikipedia article title, used to pull public-domain / CC
  *             photos and their credits at runtime (see photos.js)
  *   fact      one line of trivia for the reveal card
  *
  * No photo URLs are stored here on purpose: they are resolved live from the
  * Wikimedia APIs so the credit line always matches the photo actually shown.
+ *
+ * A game never draws two beaches within MIN_SEPARATION_KM of each other, so
+ * near-neighbours in this list (Bondi and Coogee, Piha and Karekare) are safe.
  */
 const BEACHES = [
-  { name: "Whitehaven Beach", country: "Australia", lat: -20.2833, lng: 149.0333, wiki: "Whitehaven Beach",
-    fact: "Its sand is 98% pure silica, so fine it squeaks underfoot and never gets hot." },
-  { name: "Copacabana", country: "Brazil", lat: -22.9711, lng: -43.1822, wiki: "Copacabana, Rio de Janeiro",
-    fact: "The black-and-white wave pattern on the promenade is a Portuguese calçada design laid in 1970." },
+  // ---- Oceania (63)
+  { name: "Bay of Fires", country: "Australia", lat: -41.0, lng: 148.28, wiki: "Bay of Fires",
+    fact: "The boulders are painted brilliant orange by lichen, against white sand and blue water." },
+  { name: "Bells Beach", country: "Australia", lat: -38.369, lng: 144.281, wiki: "Bells Beach, Victoria",
+    fact: "Home of the world's longest-running surfing competition, held every Easter since 1962." },
   { name: "Bondi Beach", country: "Australia", lat: -33.8908, lng: 151.2743, wiki: "Bondi Beach",
     fact: "'Bondi' comes from an Aboriginal word thought to mean water breaking over rocks." },
-  { name: "Navagio (Shipwreck) Beach", country: "Greece", lat: 37.8594, lng: 20.6247, wiki: "Navagio",
-    fact: "The wreck is the MV Panagiotis, run aground in 1980 and left where it stopped." },
-  { name: "Anse Source d'Argent", country: "Seychelles", lat: -4.3667, lng: 55.8258, wiki: "Anse Source d'Argent",
-    fact: "Its sculpted boulders are granite — unusual for a tropical island, which are usually volcanic or coral." },
-  { name: "Reynisfjara", country: "Iceland", lat: 63.4062, lng: -19.0448, wiki: "Reynisfjara",
-    fact: "The hexagonal basalt columns formed as lava cooled and cracked into near-perfect geometry." },
-  { name: "Praia da Marinha", country: "Portugal", lat: 37.0894, lng: -8.4123, wiki: "Praia da Marinha",
-    fact: "The twin sea arches here are among the most photographed rock formations in Europe." },
-  { name: "Maya Bay", country: "Thailand", lat: 7.6783, lng: 98.7658, wiki: "Maya Bay",
-    fact: "Closed to visitors in 2018 to let the reef recover after the film 'The Beach' made it famous." },
-  { name: "Waikiki Beach", country: "United States", lat: 21.2767, lng: -157.8271, wiki: "Waikiki",
-    fact: "Much of its sand was barged in from elsewhere in Hawaii and California to widen the shore." },
-  { name: "Cannon Beach", country: "United States", lat: 45.8847, lng: -123.9686, wiki: "Cannon Beach, Oregon",
-    fact: "Haystack Rock rises 235 ft and is a protected nesting site for tufted puffins." },
-  { name: "Praia do Norte, Nazaré", country: "Portugal", lat: 39.6058, lng: -9.0847, wiki: "Praia do Norte, Nazaré",
-    fact: "An undersea canyon funnels swell here into the biggest surfable waves ever ridden — over 80 ft." },
-  { name: "Railay Beach", country: "Thailand", lat: 8.0119, lng: 98.8375, wiki: "Railay Beach",
-    fact: "Limestone karsts cut it off from the mainland — you can only arrive by boat." },
-  { name: "Pink Sands Beach", country: "Bahamas", lat: 25.5000, lng: -76.6167, wiki: "Harbour Island, Bahamas",
-    fact: "The blush colour comes from crushed shells of foraminifera, a single-celled marine organism." },
-  { name: "Glass Beach", country: "United States", lat: 39.4550, lng: -123.8130, wiki: "Glass Beach (Fort Bragg, California)",
-    fact: "Decades of dumped bottles were tumbled by surf into smooth sea glass that now covers the shore." },
+  { name: "Burleigh Heads", country: "Australia", lat: -28.09, lng: 153.45, wiki: "Burleigh Heads, Queensland",
+    fact: "A world-class right-hand point break wrapping around a rainforested headland." },
   { name: "Cable Beach", country: "Australia", lat: -17.9614, lng: 122.2081, wiki: "Cable Beach, Western Australia",
     fact: "Named for the undersea telegraph cable laid from here to Java in 1889." },
-  { name: "Diani Beach", country: "Kenya", lat: -4.3167, lng: 39.5833, wiki: "Diani Beach",
-    fact: "Colobus monkeys cross the coast road on rope bridges built to keep them off the tarmac." },
-  { name: "Boulders Beach", country: "South Africa", lat: -34.1972, lng: 18.4519, wiki: "Boulders Beach",
-    fact: "A colony of African penguins settled here in 1982 and now numbers in the thousands." },
-  { name: "Tulum Beach", country: "Mexico", lat: 20.2114, lng: -87.4290, wiki: "Tulum",
-    fact: "The only major Maya city built on the coast, its cliff temple watched over trade canoes." },
-  { name: "Haukland Beach, Lofoten", country: "Norway", lat: 68.2011, lng: 13.5386, wiki: "Lofoten",
-    fact: "It sits above the Arctic Circle, where turquoise water meets snow-topped peaks." },
-  { name: "Nungwi Beach, Zanzibar", country: "Tanzania", lat: -5.7264, lng: 39.2966, wiki: "Nungwi",
-    fact: "One of the few Zanzibar beaches barely affected by the island's huge tidal swings." },
-  { name: "Elafonissi Beach", country: "Greece", lat: 35.2717, lng: 23.5397, wiki: "Elafonisi",
-    fact: "A shallow lagoon lets you wade across to the islet when the water is low." },
-  { name: "Cala Macarella", country: "Spain", lat: 39.9350, lng: 3.9358, wiki: "Cala Macarella",
-    fact: "Reached on foot through a pine forest — no road runs down to the cove." },
-  { name: "Piha Beach", country: "New Zealand", lat: -36.9553, lng: 174.4680, wiki: "Piha",
-    fact: "Its black sand is iron-rich volcanic grit washed down from Taranaki, and the rips are notorious." },
-  { name: "Playa de las Catedrales", country: "Spain", lat: 43.5533, lng: -7.1583, wiki: "As Catedrais Beach",
-    fact: "The stone arches are only walkable at low tide; at high tide the beach disappears." },
-  { name: "Étretat", country: "France", lat: 49.7075, lng: 0.2011, wiki: "Étretat",
-    fact: "Monet painted its chalk arch more than a dozen times in different light." },
-  { name: "Durdle Door", country: "United Kingdom", lat: 50.6212, lng: -2.2766, wiki: "Durdle Door",
-    fact: "The limestone arch is around 140 million years old and still slowly eroding." },
-  { name: "South Beach, Miami", country: "United States", lat: 25.7825, lng: -80.1300, wiki: "South Beach",
-    fact: "Its pastel lifeguard towers were rebuilt as art pieces after Hurricane Andrew." },
-  { name: "Varadero", country: "Cuba", lat: 23.1550, lng: -81.2450, wiki: "Varadero",
-    fact: "A 20 km sandbar peninsula so narrow you can see water on both sides at once." },
-  { name: "Grace Bay", country: "Turks and Caicos", lat: 21.7960, lng: -72.1900, wiki: "Grace Bay",
-    fact: "A barrier reef offshore keeps the water flat and free of seaweed year-round." },
-  { name: "Diamond Beach, Jökulsárlón", country: "Iceland", lat: 64.0430, lng: -16.1790, wiki: "Jökulsárlón",
-    fact: "Icebergs calved from a glacier wash back ashore and glitter on the black sand." },
-  { name: "Manuel Antonio Beach", country: "Costa Rica", lat: 9.3900, lng: -84.1500, wiki: "Manuel Antonio National Park",
-    fact: "Sloths, capuchins and squirrel monkeys live in the rainforest that runs right to the sand." },
-  { name: "Kelingking Beach, Nusa Penida", country: "Indonesia", lat: -8.7500, lng: 115.4728, wiki: "Nusa Penida",
-    fact: "The headland above it is shaped uncannily like a T-rex dipping its head into the sea." },
-  { name: "Kuta Beach, Bali", country: "Indonesia", lat: -8.7180, lng: 115.1686, wiki: "Kuta, Bali",
-    fact: "A fishing village until 1970s surfers arrived; now Bali's busiest stretch of sand." },
-  { name: "Yonaha Maehama Beach", country: "Japan", lat: 24.7239, lng: 125.2603, wiki: "Miyako-jima",
-    fact: "Seven kilometres of white sand with water shallow enough to wade far offshore." },
-  { name: "Nacpan Beach, El Nido", country: "Philippines", lat: 11.3097, lng: 119.4139, wiki: "El Nido, Palawan",
-    fact: "Twin beaches meet at a headland locals call the Nacpan–Calitang 'twin beach'." },
-  { name: "White Beach, Boracay", country: "Philippines", lat: 11.9600, lng: 121.9250, wiki: "Boracay",
-    fact: "The island shut down entirely for six months in 2018 for an environmental clean-up." },
-  { name: "Baía do Sancho", country: "Brazil", lat: -3.8583, lng: -32.4444, wiki: "Baía do Sancho",
-    fact: "Reached by a ladder bolted into a crack in the cliff face." },
-  { name: "Luskentyre Beach", country: "United Kingdom", lat: 57.8869, lng: -7.0231, wiki: "Luskentyre",
-    fact: "Caribbean-blue water off the Outer Hebrides — and rarely warmer than 13°C." },
-  { name: "Radhanagar Beach", country: "India", lat: 11.9832, lng: 92.9482, wiki: "Havelock Island",
-    fact: "A two-kilometre curve of white sand backed by dense mahua forest." },
-  { name: "Palolem Beach", country: "India", lat: 15.0100, lng: 74.0233, wiki: "Palolem",
-    fact: "Its 'silent discos' use headphones so music doesn't break the local noise curfew." },
-  { name: "Long Beach, Tofino", country: "Canada", lat: 49.0500, lng: -125.7500, wiki: "Long Beach (Vancouver Island)",
-    fact: "Winter storm-watching draws as many visitors as summer surfing does." },
-  { name: "Matira Beach, Bora Bora", country: "French Polynesia", lat: -16.5464, lng: -151.7500, wiki: "Bora Bora",
-    fact: "Bora Bora's only substantial public beach, on a lagoon inside a barrier reef." },
-  { name: "Anakena", country: "Chile", lat: -27.0728, lng: -109.3239, wiki: "Anakena",
-    fact: "Seven restored moai stand on the platform behind the sand on Easter Island." },
-  { name: "Sarakiniko", country: "Greece", lat: 36.7444, lng: 24.4022, wiki: "Sarakiniko",
-    fact: "Wind and waves carved the white volcanic rock into a landscape people call lunar." },
-  { name: "Playa Balandra", country: "Mexico", lat: 24.3200, lng: -110.3350, wiki: "Balandra Beach",
-    fact: "The bay is so shallow you can walk across most of it at low tide." },
-  { name: "Trunk Bay", country: "U.S. Virgin Islands", lat: 18.3527, lng: -64.7686, wiki: "Trunk Bay",
-    fact: "It has an underwater snorkelling trail with plaques identifying the coral." },
-  { name: "Eagle Beach", country: "Aruba", lat: 12.5556, lng: -70.0525, wiki: "Eagle Beach",
-    fact: "Its wind-bent divi-divi trees always point southwest, thanks to the trade winds." },
-  { name: "Ölüdeniz", country: "Turkey", lat: 36.5486, lng: 29.1156, wiki: "Ölüdeniz",
-    fact: "The name means 'dead sea' — the lagoon stays glassy even when the coast is rough." },
-  { name: "Zlatni Rat", country: "Croatia", lat: 43.2569, lng: 16.6353, wiki: "Zlatni Rat",
-    fact: "The pebble spit physically changes shape and direction with the wind and currents." },
-  { name: "Spiaggia dei Conigli", country: "Italy", lat: 35.5133, lng: 12.5544, wiki: "Isola dei Conigli",
-    fact: "Loggerhead turtles nest here, so the beach is closed at night in summer." },
-  { name: "Cala Goloritzé", country: "Italy", lat: 40.1103, lng: 9.6511, wiki: "Cala Goloritzé",
-    fact: "Created by a landslide in 1962; a 143 m limestone spire towers over the cove." },
-  { name: "Bathsheba", country: "Barbados", lat: 13.2130, lng: -59.5240, wiki: "Bathsheba, Barbados",
-    fact: "The Atlantic side of the island — huge mushroom rocks and the 'Soup Bowl' surf break." },
-  { name: "Seven Mile Beach", country: "Cayman Islands", lat: 19.3400, lng: -81.3830, wiki: "Seven Mile Beach, Grand Cayman",
-    fact: "Despite the name it runs about 5.5 miles along Grand Cayman's west shore." },
-  { name: "My Khe Beach, Da Nang", country: "Vietnam", lat: 16.0600, lng: 108.2470, wiki: "Mỹ Khê Beach",
-    fact: "American servicemen called it 'China Beach' during the Vietnam War." },
-  { name: "Legzira Beach", country: "Morocco", lat: 29.4200, lng: -10.0300, wiki: "Legzira",
-    fact: "One of its two famous red sandstone arches collapsed suddenly in 2016." },
-  { name: "Camps Bay", country: "South Africa", lat: -33.9508, lng: 18.3775, wiki: "Camps Bay",
-    fact: "The Twelve Apostles ridge of Table Mountain rises straight up behind the sand." },
-  { name: "Jericoacoara", country: "Brazil", lat: -2.7961, lng: -40.5122, wiki: "Jericoacoara",
-    fact: "There are no paved streets — you get there across dunes by 4x4." },
-  { name: "Wineglass Bay", country: "Australia", lat: -42.1580, lng: 148.2960, wiki: "Wineglass Bay",
+  { name: "Cape Tribulation", country: "Australia", lat: -16.085, lng: 145.464, wiki: "Cape Tribulation, Queensland",
+    fact: "One of the few places where two World Heritage areas — reef and rainforest — meet." },
+  { name: "Coogee Beach", country: "Australia", lat: -33.92, lng: 151.257, wiki: "Coogee, New South Wales",
+    fact: "A shark net was strung across the bay in the 1920s; the pylons still stand." },
+  { name: "Coral Bay", country: "Australia", lat: -23.143, lng: 113.765, wiki: "Coral Bay, Western Australia",
+    fact: "Whale sharks pass just offshore between March and July." },
+  { name: "Cottesloe Beach", country: "Australia", lat: -31.995, lng: 115.752, wiki: "Cottesloe Beach",
+    fact: "Perth's classic sunset beach, with Norfolk pines along the terrace above the sand." },
+  { name: "Four Mile Beach, Port Douglas", country: "Australia", lat: -16.48, lng: 145.47, wiki: "Port Douglas",
+    fact: "Rainforest meets reef here; stinger nets go up through the summer jellyfish season." },
+  { name: "Gibson Steps, Twelve Apostles", country: "Australia", lat: -38.6662, lng: 143.1044, wiki: "Twelve Apostles (Victoria)",
+    fact: "A staircase cut into the cliff drops you at the foot of the limestone stacks." },
+  { name: "Glenelg Beach", country: "Australia", lat: -34.98, lng: 138.514, wiki: "Glenelg, South Australia",
+    fact: "A vintage tram runs from the centre of Adelaide straight down to the jetty." },
+  { name: "Hyams Beach", country: "Australia", lat: -35.0975, lng: 150.693, wiki: "Hyams Beach",
+    fact: "Long claimed to have the whitest sand in the world, on Jervis Bay." },
+  { name: "Lucky Bay", country: "Australia", lat: -34.001, lng: 122.228, wiki: "Lucky Bay",
+    fact: "Kangaroos sunbathe on some of the whitest sand ever measured." },
+  { name: "Main Beach, Byron Bay", country: "Australia", lat: -28.64, lng: 153.615, wiki: "Byron Bay",
+    fact: "Just south is Cape Byron, the most easterly point of the Australian mainland." },
+  { name: "Manly Beach", country: "Australia", lat: -33.7969, lng: 151.288, wiki: "Manly Beach",
+    fact: "Australia's first surf lifesaving club patrolled here, and daylight bathing was once banned." },
+  { name: "Mindil Beach", country: "Australia", lat: -12.44, lng: 130.83, wiki: "Mindil Beach",
+    fact: "Darwin's sunset markets set up on the sand through the dry season." },
+  { name: "Mission Beach", country: "Australia", lat: -17.87, lng: 146.1, wiki: "Mission Beach, Queensland",
+    fact: "Cassowaries wander out of the rainforest and across the road to the sand." },
+  { name: "Noosa Main Beach", country: "Australia", lat: -26.39, lng: 153.09, wiki: "Noosa Heads, Queensland",
+    fact: "One of the few east-coast beaches that faces north, so it stays calm most of the year." },
+  { name: "Prevelly, Margaret River", country: "Australia", lat: -33.98, lng: 114.995, wiki: "Margaret River, Western Australia",
+    fact: "Big Atlantic-scale swell arrives here after crossing the Indian Ocean uninterrupted." },
+  { name: "Seventy-Five Mile Beach, K'gari", country: "Australia", lat: -25.25, lng: 153.2, wiki: "Fraser Island",
+    fact: "A beach highway on the world's largest sand island, used as a runway by light aircraft." },
+  { name: "Shell Beach, Shark Bay", country: "Australia", lat: -26.38, lng: 114.05, wiki: "Shell Beach, Western Australia",
+    fact: "There is no sand at all: the beach is metres of tiny cockle shells, compacted into rock below." },
+  { name: "Squeaky Beach, Wilsons Promontory", country: "Australia", lat: -39.03, lng: 146.29, wiki: "Wilsons Promontory",
+    fact: "The quartz grains are so uniform they squeak audibly underfoot." },
+  { name: "St Kilda Beach", country: "Australia", lat: -37.868, lng: 144.974, wiki: "St Kilda Beach",
+    fact: "Little penguins come ashore on the breakwater at dusk, in the middle of Melbourne." },
+  { name: "Surfers Paradise", country: "Australia", lat: -27.999, lng: 153.43, wiki: "Surfers Paradise, Queensland",
+    fact: "A wall of high-rise towers throws its shadow across the sand each afternoon." },
+  { name: "The Basin, Rottnest Island", country: "Australia", lat: -32.006, lng: 115.5, wiki: "Rottnest Island",
+    fact: "No cars on the island — you cycle between beaches, watched by quokkas." },
+  { name: "Turquoise Bay, Ningaloo", country: "Australia", lat: -22.1, lng: 113.89, wiki: "Ningaloo Coast",
+    fact: "You can snorkel onto a fringing reef straight off the beach, no boat needed." },
+  { name: "Twilight Beach, Esperance", country: "Australia", lat: -33.92, lng: 121.83, wiki: "Esperance, Western Australia",
+    fact: "Granite boulders sit offshore in water so clear it looks shallow from the road." },
+  { name: "Whitehaven Beach", country: "Australia", lat: -20.2833, lng: 149.0333, wiki: "Whitehaven Beach",
+    fact: "Its sand is 98% pure silica, so fine it squeaks underfoot and never gets hot." },
+  { name: "Wineglass Bay", country: "Australia", lat: -42.158, lng: 148.296, wiki: "Wineglass Bay",
     fact: "Named for its curve — though it may also recall whaling that once turned the water red." },
-  { name: "Scheveningen", country: "Netherlands", lat: 52.1083, lng: 4.2750, wiki: "Scheveningen",
-    fact: "Its pronunciation was used as a shibboleth in WWII to identify Dutch speakers." },
-  { name: "Grenen, Skagen", country: "Denmark", lat: 57.7444, lng: 10.6403, wiki: "Grenen",
-    fact: "You can stand with one foot in the North Sea and one in the Baltic where they collide." },
-  { name: "Brighton Beach", country: "United Kingdom", lat: 50.8195, lng: -0.1357, wiki: "Brighton Beach",
-    fact: "It's pebbles, not sand — and the burnt West Pier still stands offshore." },
+  { name: "Muri Beach, Rarotonga", country: "Cook Islands", lat: -21.25, lng: -159.73, wiki: "Rarotonga",
+    fact: "Four small motu sit in a lagoon shallow enough to wade between them." },
+  { name: "Natadola Beach", country: "Fiji", lat: -18.08, lng: 177.36, wiki: "Natadola Beach",
+    fact: "A crescent of sand on Viti Levu's Coral Coast, reachable by a sugar-cane railway." },
+  { name: "Matira Beach, Bora Bora", country: "French Polynesia", lat: -16.5464, lng: -151.75, wiki: "Bora Bora",
+    fact: "Bora Bora's only substantial public beach, on a lagoon inside a barrier reef." },
+  { name: "Temae Beach, Mo'orea", country: "French Polynesia", lat: -17.49, lng: -149.76, wiki: "Moorea",
+    fact: "The lagoon here is protected by a reef, with Tahiti visible across the channel." },
+  { name: "Tumon Bay", country: "Guam", lat: 13.51, lng: 144.8, wiki: "Tumon, Guam",
+    fact: "A protected reef bay backed by hotels, on the westernmost territory of the United States." },
+  { name: "Anse Vata, Nouméa", country: "New Caledonia", lat: -22.3, lng: 166.44, wiki: "Nouméa",
+    fact: "A French Pacific city on the world's second-largest barrier reef lagoon." },
+  { name: "Cathedral Cove", country: "New Zealand", lat: -36.8281, lng: 175.7911, wiki: "Cathedral Cove",
+    fact: "A vaulted stone archway joins two coves; you can only reach it on foot or by boat." },
+  { name: "Curio Bay", country: "New Zealand", lat: -46.657, lng: 169.101, wiki: "Curio Bay",
+    fact: "A 180-million-year-old petrified forest is exposed on the shore platform at low tide." },
+  { name: "Hokitika Beach", country: "New Zealand", lat: -42.716, lng: 170.956, wiki: "Hokitika",
+    fact: "Driftwood sculptures line a wild West Coast beach with the Southern Alps behind it." },
+  { name: "Hot Water Beach", country: "New Zealand", lat: -36.8886, lng: 175.8228, wiki: "Hot Water Beach",
+    fact: "Dig a hole near low tide and it fills with water from a geothermal spring below the sand." },
+  { name: "Kaiteriteri Beach", country: "New Zealand", lat: -41.033, lng: 173.017, wiki: "Kaiteriteri",
+    fact: "The golden-sand gateway to Abel Tasman, unusually sheltered for a New Zealand beach." },
+  { name: "Karekare Beach", country: "New Zealand", lat: -36.993, lng: 174.479, wiki: "Karekare",
+    fact: "The black ironsand beach where 'The Piano' was filmed, hemmed in by rainforest cliffs." },
+  { name: "Koekohe Beach (Moeraki Boulders)", country: "New Zealand", lat: -45.3456, lng: 170.8261, wiki: "Moeraki Boulders",
+    fact: "Spherical concretions up to two metres across, weathering out of the cliffs onto the sand." },
+  { name: "Manu Bay, Raglan", country: "New Zealand", lat: -37.829, lng: 174.811, wiki: "Raglan, New Zealand",
+    fact: "One of the longest and most consistent left-hand point breaks in the world." },
+  { name: "Marine Parade, Napier", country: "New Zealand", lat: -39.49, lng: 176.92, wiki: "Napier, New Zealand",
+    fact: "A pebble beach fronting a town rebuilt entirely in Art Deco after the 1931 earthquake." },
+  { name: "Mount Maunganui Beach", country: "New Zealand", lat: -37.635, lng: 176.183, wiki: "Mount Maunganui",
+    fact: "A long ocean beach running out to Mauao, the extinct cone at the tip of the peninsula." },
+  { name: "Muriwai Beach", country: "New Zealand", lat: -36.832, lng: 174.429, wiki: "Muriwai",
+    fact: "A gannet colony nests on the headland stacks, thousands of birds within metres of the path." },
+  { name: "Ninety Mile Beach", country: "New Zealand", lat: -34.95, lng: 173.0, wiki: "Ninety Mile Beach, New Zealand",
+    fact: "It is a legal highway, though it is about 88 km long rather than ninety miles." },
+  { name: "Oreti Beach", country: "New Zealand", lat: -46.46, lng: 168.27, wiki: "Oreti Beach",
+    fact: "A vast southern beach you can drive on, made famous by 'The World's Fastest Indian'." },
+  { name: "Oriental Bay, Wellington", country: "New Zealand", lat: -41.292, lng: 174.793, wiki: "Oriental Bay",
+    fact: "City-centre sand shipped in from Golden Bay, with the harbour ferries passing offshore." },
+  { name: "Piha Beach", country: "New Zealand", lat: -36.9553, lng: 174.468, wiki: "Piha",
+    fact: "Its black sand is iron-rich volcanic grit washed down from Taranaki, and the rips are notorious." },
+  { name: "Punakaiki (Pancake Rocks)", country: "New Zealand", lat: -42.114, lng: 171.327, wiki: "Punakaiki",
+    fact: "Limestone stacked in thin layers like pancakes, with blowholes that fire at high tide." },
+  { name: "St Clair Beach, Dunedin", country: "New Zealand", lat: -45.911, lng: 170.487, wiki: "St Clair, New Zealand",
+    fact: "A cold-water surf beach with a heated saltwater pool built into the esplanade." },
+  { name: "Tahunanui Beach, Nelson", country: "New Zealand", lat: -41.29, lng: 173.24, wiki: "Tahunanui",
+    fact: "Shallow, warm and enormous at low tide, in one of the sunniest spots in the country." },
+  { name: "Tapotupotu Bay, Cape Reinga", country: "New Zealand", lat: -34.4292, lng: 172.6811, wiki: "Cape Reinga",
+    fact: "Near the point where the Tasman Sea and the Pacific visibly collide in a line of surf." },
+  { name: "Totaranui, Abel Tasman", country: "New Zealand", lat: -40.82, lng: 173.008, wiki: "Abel Tasman National Park",
+    fact: "Golden granite sand backed by beech forest, on a coast track walked by thousands each summer." },
+  { name: "Tunnel Beach", country: "New Zealand", lat: -45.908, lng: 170.46, wiki: "Tunnel Beach",
+    fact: "A hand-cut tunnel through the sandstone leads down to a private cove, dug in the 1870s." },
+  { name: "Wainui Beach, Gisborne", country: "New Zealand", lat: -38.68, lng: 178.048, wiki: "Wainui Beach",
+    fact: "Among the first beaches on Earth to see the sunrise each day." },
+  { name: "Whangamatā Beach", country: "New Zealand", lat: -37.21, lng: 175.872, wiki: "Whangamatā",
+    fact: "A Coromandel surf town whose population multiplies several times over each New Year." },
+  { name: "Wharariki Beach", country: "New Zealand", lat: -40.503, lng: 172.672, wiki: "Wharariki Beach",
+    fact: "Reached across farmland and dunes; seal pups play in the pools between the Archway Islands." },
+  { name: "Ōhope Beach", country: "New Zealand", lat: -37.97, lng: 177.08, wiki: "Ōhope",
+    fact: "Eleven kilometres of sand voted New Zealand's best-loved beach more than once." },
+  { name: "Lalomanu Beach", country: "Samoa", lat: -14.025, lng: -171.43, wiki: "Lalomanu",
+    fact: "Open-sided beach fales stand right on the sand at the eastern tip of Upolu." },
+  { name: "Champagne Beach", country: "Vanuatu", lat: -15.16, lng: 167.12, wiki: "Champagne Beach",
+    fact: "Volcanic gas bubbles up through the sand at low tide, fizzing in the shallows." },
+
+  // ---- Asia (31)
   { name: "Cox's Bazar", country: "Bangladesh", lat: 21.4272, lng: 92.0058, wiki: "Cox's Bazar",
     fact: "At about 120 km, it's often called the longest natural sea beach in the world." },
+  { name: "Kovalam Beach", country: "India", lat: 8.4, lng: 76.978, wiki: "Kovalam",
+    fact: "A red-and-white lighthouse stands over the southernmost of its three crescents." },
+  { name: "Marina Beach, Chennai", country: "India", lat: 13.05, lng: 80.282, wiki: "Marina Beach",
+    fact: "One of the longest urban beaches in the world, though swimming is unsafe along it." },
+  { name: "Om Beach, Gokarna", country: "India", lat: 14.53, lng: 74.32, wiki: "Gokarna, Karnataka",
+    fact: "Two joined crescents form the shape of the sacred syllable 'Om'." },
+  { name: "Palolem Beach", country: "India", lat: 15.01, lng: 74.0233, wiki: "Palolem",
+    fact: "Its 'silent discos' use headphones so music doesn't break the local noise curfew." },
+  { name: "Radhanagar Beach", country: "India", lat: 11.9832, lng: 92.9482, wiki: "Havelock Island",
+    fact: "A two-kilometre curve of white sand backed by dense mahua forest." },
+  { name: "Varkala Beach", country: "India", lat: 8.733, lng: 76.716, wiki: "Varkala",
+    fact: "The only place in southern Kerala where cliffs meet the Arabian Sea." },
+  { name: "Gili Trawangan", country: "Indonesia", lat: -8.35, lng: 116.04, wiki: "Gili Trawangan",
+    fact: "No motor vehicles are allowed — transport is by bicycle or pony cart." },
+  { name: "Kelingking Beach, Nusa Penida", country: "Indonesia", lat: -8.75, lng: 115.4728, wiki: "Nusa Penida",
+    fact: "The headland above it is shaped uncannily like a T-rex dipping its head into the sea." },
+  { name: "Kuta Beach, Bali", country: "Indonesia", lat: -8.718, lng: 115.1686, wiki: "Kuta, Bali",
+    fact: "A fishing village until 1970s surfers arrived; now Bali's busiest stretch of sand." },
+  { name: "Raja Ampat", country: "Indonesia", lat: -0.5, lng: 130.5, wiki: "Raja Ampat Islands",
+    fact: "More coral species live here than anywhere else on Earth." },
+  { name: "Shirahama Beach", country: "Japan", lat: 33.68, lng: 135.34, wiki: "Shirahama, Wakayama",
+    fact: "White sand imported from Australia keeps this hot-spring resort beach pale." },
+  { name: "Yonaha Maehama Beach", country: "Japan", lat: 24.7239, lng: 125.2603, wiki: "Miyako-jima",
+    fact: "Seven kilometres of white sand with water shallow enough to wade far offshore." },
+  { name: "Yuigahama, Kamakura", country: "Japan", lat: 35.31, lng: 139.49, wiki: "Kamakura",
+    fact: "An hour from Tokyo, with the Great Buddha a short walk inland." },
+  { name: "Pantai Cenang, Langkawi", country: "Malaysia", lat: 6.29, lng: 99.725, wiki: "Pantai Cenang",
+    fact: "The main beach of a duty-free island archipelago in the Andaman Sea." },
+  { name: "Perhentian Islands", country: "Malaysia", lat: 5.91, lng: 102.73, wiki: "Perhentian Islands",
+    fact: "Green and hawksbill turtles nest on beaches that close to visitors in monsoon season." },
+  { name: "Ngapali Beach", country: "Myanmar", lat: 18.43, lng: 94.35, wiki: "Ngapali",
+    fact: "Fishing boats still work the beach between the palms and the Bay of Bengal." },
+  { name: "Alona Beach, Panglao", country: "Philippines", lat: 9.55, lng: 123.77, wiki: "Panglao",
+    fact: "The launching point for diving at Balicasag, one of the country's richest reefs." },
+  { name: "Cloud 9, Siargao", country: "Philippines", lat: 9.818, lng: 126.159, wiki: "Siargao",
+    fact: "A wooden boardwalk runs out over the reef to a famously hollow right-hander." },
+  { name: "Nacpan Beach, El Nido", country: "Philippines", lat: 11.3097, lng: 119.4139, wiki: "El Nido, Palawan",
+    fact: "Twin beaches meet at a headland locals call the Nacpan–Calitang 'twin beach'." },
+  { name: "White Beach, Boracay", country: "Philippines", lat: 11.96, lng: 121.925, wiki: "Boracay",
+    fact: "The island shut down entirely for six months in 2018 for an environmental clean-up." },
+  { name: "Haeundae Beach, Busan", country: "South Korea", lat: 35.1587, lng: 129.1604, wiki: "Haeundae Beach",
+    fact: "Parasols cover the sand so densely in August that photographs look like a mosaic." },
+  { name: "Mirissa", country: "Sri Lanka", lat: 5.944, lng: 80.459, wiki: "Mirissa",
+    fact: "Blue whales pass close to shore here between November and April." },
+  { name: "Unawatuna", country: "Sri Lanka", lat: 6.01, lng: 80.25, wiki: "Unawatuna",
+    fact: "A sheltered reef bay near Galle, backed by a temple on the headland." },
+  { name: "Chaweng Beach, Ko Samui", country: "Thailand", lat: 9.538, lng: 100.062, wiki: "Chaweng",
+    fact: "The longest beach on Samui, with a reef at the northern end and surf at the southern." },
+  { name: "Maya Bay", country: "Thailand", lat: 7.6783, lng: 98.7658, wiki: "Maya Bay",
+    fact: "Closed to visitors in 2018 to let the reef recover after the film 'The Beach' made it famous." },
+  { name: "Patong Beach", country: "Thailand", lat: 7.896, lng: 98.296, wiki: "Patong",
+    fact: "Phuket's busiest bay, rebuilt after the 2004 Indian Ocean tsunami." },
+  { name: "Railay Beach", country: "Thailand", lat: 8.0119, lng: 98.8375, wiki: "Railay Beach",
+    fact: "Limestone karsts cut it off from the mainland — you can only arrive by boat." },
+  { name: "My Khe Beach, Da Nang", country: "Vietnam", lat: 16.06, lng: 108.247, wiki: "Mỹ Khê Beach",
+    fact: "American servicemen called it 'China Beach' during the Vietnam War." },
+  { name: "Nha Trang Beach", country: "Vietnam", lat: 12.24, lng: 109.196, wiki: "Nha Trang",
+    fact: "Six kilometres of city beach curving around a bay dotted with islands." },
+  { name: "Sao Beach, Phú Quốc", country: "Vietnam", lat: 10.04, lng: 104.02, wiki: "Phú Quốc",
+    fact: "Powder-white sand on an island closer to Cambodia than to mainland Vietnam." },
+
+  // ---- Europe (54)
+  { name: "Banje Beach, Dubrovnik", country: "Croatia", lat: 42.642, lng: 18.116, wiki: "Dubrovnik",
+    fact: "The old city walls rise directly behind the pebbles." },
+  { name: "Zlatni Rat", country: "Croatia", lat: 43.2569, lng: 16.6353, wiki: "Zlatni Rat",
+    fact: "The pebble spit physically changes shape and direction with the wind and currents." },
+  { name: "Grenen, Skagen", country: "Denmark", lat: 57.7444, lng: 10.6403, wiki: "Grenen",
+    fact: "You can stand with one foot in the North Sea and one in the Baltic where they collide." },
+  { name: "Calanque d'En-Vau", country: "France", lat: 43.21, lng: 5.51, wiki: "Calanques",
+    fact: "A narrow limestone fjord near Marseille, an hour's walk down from the plateau." },
+  { name: "Deauville", country: "France", lat: 49.36, lng: 0.07, wiki: "Deauville",
+    fact: "Wooden boardwalks named after film stars run behind a beach of striped parasols." },
+  { name: "Grande Plage, Biarritz", country: "France", lat: 43.483, lng: -1.562, wiki: "Biarritz",
+    fact: "Surfing arrived in Europe on this beach in 1956, brought by a visiting screenwriter." },
+  { name: "Promenade des Anglais, Nice", country: "France", lat: 43.695, lng: 7.265, wiki: "Promenade des Anglais",
+    fact: "The Côte d'Azur's most famous seafront — and it is pebbles, not sand." },
+  { name: "Étretat", country: "France", lat: 49.7075, lng: 0.2011, wiki: "Étretat",
+    fact: "Monet painted its chalk arch more than a dozen times in different light." },
+  { name: "Westerland, Sylt", country: "Germany", lat: 54.907, lng: 8.304, wiki: "Sylt",
+    fact: "A North Sea island whose beach is lined with hooded wicker Strandkorb chairs." },
+  { name: "Balos Lagoon", country: "Greece", lat: 35.58, lng: 23.587, wiki: "Balos",
+    fact: "A shallow lagoon between Crete and two islets, reached on foot or by ferry." },
+  { name: "Elafonissi Beach", country: "Greece", lat: 35.2717, lng: 23.5397, wiki: "Elafonisi",
+    fact: "A shallow lagoon lets you wade across to the islet when the water is low." },
+  { name: "Myrtos Beach", country: "Greece", lat: 38.34, lng: 20.535, wiki: "Myrtos Beach",
+    fact: "White pebbles and a steep drop-off give the water an unusually vivid blue." },
+  { name: "Navagio (Shipwreck) Beach", country: "Greece", lat: 37.8594, lng: 20.6247, wiki: "Navagio",
+    fact: "The wreck is the MV Panagiotis, run aground in 1980 and left where it stopped." },
+  { name: "Porto Katsiki", country: "Greece", lat: 38.62, lng: 20.556, wiki: "Porto Katsiki",
+    fact: "Around 100 steps drop down a white cliff to the sand on Lefkada." },
+  { name: "Red Beach, Santorini", country: "Greece", lat: 36.348, lng: 25.393, wiki: "Santorini",
+    fact: "Iron-rich volcanic cliffs give the sand and the rock face a deep rust colour." },
+  { name: "Sarakiniko", country: "Greece", lat: 36.7444, lng: 24.4022, wiki: "Sarakiniko",
+    fact: "Wind and waves carved the white volcanic rock into a landscape people call lunar." },
+  { name: "Diamond Beach, Jökulsárlón", country: "Iceland", lat: 64.043, lng: -16.179, wiki: "Jökulsárlón",
+    fact: "Icebergs calved from a glacier wash back ashore and glitter on the black sand." },
+  { name: "Reynisfjara", country: "Iceland", lat: 63.4062, lng: -19.0448, wiki: "Reynisfjara",
+    fact: "The hexagonal basalt columns formed as lava cooled and cracked into near-perfect geometry." },
+  { name: "Cala Goloritzé", country: "Italy", lat: 40.1103, lng: 9.6511, wiki: "Cala Goloritzé",
+    fact: "Created by a landslide in 1962; a 143 m limestone spire towers over the cove." },
+  { name: "La Pelosa, Stintino", country: "Italy", lat: 40.92, lng: 8.205, wiki: "Stintino",
+    fact: "Water so shallow and clear that a watchtower offshore appears to float." },
+  { name: "Monterosso al Mare", country: "Italy", lat: 44.146, lng: 9.654, wiki: "Monterosso al Mare",
+    fact: "The only one of the five Cinque Terre villages with a proper sandy beach." },
+  { name: "Positano", country: "Italy", lat: 40.628, lng: 14.485, wiki: "Positano",
+    fact: "Pastel houses stack up the cliff behind a grey volcanic beach on the Amalfi Coast." },
+  { name: "San Vito Lo Capo", country: "Italy", lat: 38.174, lng: 12.736, wiki: "San Vito Lo Capo",
+    fact: "A white crescent under Monte Monaco, closer to Tunis than to Rome." },
+  { name: "Spiaggia dei Conigli", country: "Italy", lat: 35.5133, lng: 12.5544, wiki: "Isola dei Conigli",
+    fact: "Loggerhead turtles nest here, so the beach is closed at night in summer." },
+  { name: "Jūrmala", country: "Latvia", lat: 56.97, lng: 23.77, wiki: "Jūrmala",
+    fact: "White quartz sand and pine forest along the Gulf of Riga." },
+  { name: "Curonian Spit", country: "Lithuania", lat: 55.3, lng: 21.0, wiki: "Curonian Spit",
+    fact: "A 98-km sand spit of drifting dunes, split between Lithuania and Russia." },
+  { name: "Sveti Stefan", country: "Montenegro", lat: 42.255, lng: 18.892, wiki: "Sveti Stefan",
+    fact: "A fortified islet village joined to the shore by a narrow sand causeway." },
+  { name: "Scheveningen", country: "Netherlands", lat: 52.1083, lng: 4.275, wiki: "Scheveningen",
+    fact: "Its pronunciation was used as a shibboleth in WWII to identify Dutch speakers." },
+  { name: "Haukland Beach, Lofoten", country: "Norway", lat: 68.2011, lng: 13.5386, wiki: "Lofoten",
+    fact: "It sits above the Arctic Circle, where turquoise water meets snow-topped peaks." },
+  { name: "Sopot Beach", country: "Poland", lat: 54.447, lng: 18.57, wiki: "Sopot",
+    fact: "Europe's longest wooden pier reaches half a kilometre into the Baltic." },
+  { name: "Costa da Caparica", country: "Portugal", lat: 38.64, lng: -9.235, wiki: "Costa da Caparica",
+    fact: "Thirty kilometres of Atlantic beach, a short bridge crossing from Lisbon." },
+  { name: "Praia da Marinha", country: "Portugal", lat: 37.0894, lng: -8.4123, wiki: "Praia da Marinha",
+    fact: "The twin sea arches here are among the most photographed rock formations in Europe." },
+  { name: "Praia da Rocha", country: "Portugal", lat: 37.118, lng: -8.537, wiki: "Praia da Rocha",
+    fact: "Ochre sandstone stacks stand out on the sand below a clifftop promenade." },
+  { name: "Praia do Norte, Nazaré", country: "Portugal", lat: 39.6058, lng: -9.0847, wiki: "Praia do Norte, Nazaré",
+    fact: "An undersea canyon funnels swell here into the biggest surfable waves ever ridden — over 80 ft." },
+  { name: "Cala Comte, Ibiza", country: "Spain", lat: 38.96, lng: 1.228, wiki: "Cala Comte",
+    fact: "Rocky terraces step into water that turns turquoise over the sand patches." },
+  { name: "Cala Macarella", country: "Spain", lat: 39.935, lng: 3.9358, wiki: "Cala Macarella",
+    fact: "Reached on foot through a pine forest — no road runs down to the cove." },
+  { name: "Es Trenc, Mallorca", country: "Spain", lat: 39.348, lng: 3.008, wiki: "Es Trenc",
+    fact: "Undeveloped dunes and salt pans behind a beach with no hotels on it." },
+  { name: "La Concha, San Sebastián", country: "Spain", lat: 43.316, lng: -1.987, wiki: "La Concha (beach)",
+    fact: "A near-perfect shell-shaped bay, with an island sitting in its mouth." },
+  { name: "Maspalomas", country: "Spain", lat: 27.737, lng: -15.586, wiki: "Maspalomas",
+    fact: "A field of shifting dunes runs right down to the sea on Gran Canaria." },
+  { name: "Playa de Bolonia", country: "Spain", lat: 36.09, lng: -5.77, wiki: "Bolonia, Cádiz",
+    fact: "A 30-metre dune backs the beach, with Roman ruins at one end and Africa on the horizon." },
+  { name: "Playa de Las Teresitas", country: "Spain", lat: 28.51, lng: -16.19, wiki: "Playa de Las Teresitas",
+    fact: "Its golden sand was shipped from the Sahara; Tenerife's own sand is black." },
+  { name: "Playa de Sotavento", country: "Spain", lat: 28.14, lng: -14.23, wiki: "Playa de Sotavento",
+    fact: "A vast tidal lagoon on Fuerteventura, a world windsurfing venue." },
+  { name: "Playa de las Catedrales", country: "Spain", lat: 43.5533, lng: -7.1583, wiki: "As Catedrais Beach",
+    fact: "The stone arches are only walkable at low tide; at high tide the beach disappears." },
+  { name: "Ölüdeniz", country: "Turkey", lat: 36.5486, lng: 29.1156, wiki: "Ölüdeniz",
+    fact: "The name means 'dead sea' — the lagoon stays glassy even when the coast is rough." },
+  { name: "Bamburgh Beach", country: "United Kingdom", lat: 55.609, lng: -1.709, wiki: "Bamburgh",
+    fact: "A vast Northumberland beach beneath a castle on a basalt outcrop." },
+  { name: "Barafundle Bay", country: "United Kingdom", lat: 51.622, lng: -4.889, wiki: "Barafundle Bay",
+    fact: "No road reaches it — a half-mile walk from the nearest car park through dunes." },
+  { name: "Bournemouth Beach", country: "United Kingdom", lat: 50.716, lng: -1.876, wiki: "Bournemouth",
+    fact: "Seven miles of sand, with beach huts that regularly sell for six figures." },
+  { name: "Brighton Beach", country: "United Kingdom", lat: 50.8195, lng: -0.1357, wiki: "Brighton Beach",
+    fact: "It's pebbles, not sand — and the burnt West Pier still stands offshore." },
+  { name: "Durdle Door", country: "United Kingdom", lat: 50.6212, lng: -2.2766, wiki: "Durdle Door",
+    fact: "The limestone arch is around 140 million years old and still slowly eroding." },
+  { name: "Giant's Causeway", country: "United Kingdom", lat: 55.2408, lng: -6.5116, wiki: "Giant's Causeway",
+    fact: "Forty thousand interlocking basalt columns step down into the North Atlantic." },
+  { name: "Luskentyre Beach", country: "United Kingdom", lat: 57.8869, lng: -7.0231, wiki: "Luskentyre",
+    fact: "Caribbean-blue water off the Outer Hebrides — and rarely warmer than 13°C." },
+  { name: "Portstewart Strand", country: "United Kingdom", lat: 55.17, lng: -6.75, wiki: "Portstewart",
+    fact: "Two miles of dunes on the Causeway Coast, used as a location in 'Game of Thrones'." },
+  { name: "Rhossili Bay", country: "United Kingdom", lat: 51.568, lng: -4.293, wiki: "Rhossili",
+    fact: "Three miles of sand on the Gower, with the wreck of the Helvetia in the beach." },
+  { name: "Sandwood Bay", country: "United Kingdom", lat: 58.535, lng: -5.07, wiki: "Sandwood Bay",
+    fact: "Four miles from the nearest road, in the far north-west of Scotland." },
+
+  // ---- Africa & the Middle East (24)
+  { name: "Santa Maria", country: "Cape Verde", lat: 16.596, lng: -22.905, wiki: "Santa Maria, Cape Verde",
+    fact: "A long pier where the day's catch is landed on the sand at Sal's southern tip." },
+  { name: "Dahab", country: "Egypt", lat: 28.5, lng: 34.515, wiki: "Dahab",
+    fact: "A former Bedouin fishing village beside the Blue Hole, a notorious dive site." },
+  { name: "Naama Bay, Sharm el-Sheikh", country: "Egypt", lat: 27.91, lng: 34.33, wiki: "Naama Bay",
+    fact: "Red Sea reefs start metres from the shore at the tip of the Sinai." },
+  { name: "Tel Aviv Beach", country: "Israel", lat: 32.08, lng: 34.765, wiki: "Tel Aviv",
+    fact: "Matkat paddleball is played along the waterline almost every day of the year." },
+  { name: "Diani Beach", country: "Kenya", lat: -4.3167, lng: 39.5833, wiki: "Diani Beach",
+    fact: "Colobus monkeys cross the coast road on rope bridges built to keep them off the tarmac." },
+  { name: "Watamu", country: "Kenya", lat: -3.356, lng: 40.02, wiki: "Watamu",
+    fact: "A marine national park protects the coral gardens directly off the beach." },
+  { name: "Nosy Be", country: "Madagascar", lat: -13.32, lng: 48.26, wiki: "Nosy Be",
+    fact: "Ylang-ylang plantations scent the air on Madagascar's main resort island." },
+  { name: "Flic-en-Flac", country: "Mauritius", lat: -20.274, lng: 57.364, wiki: "Flic-en-Flac",
+    fact: "One of the island's longest beaches, with a reef break offshore at Tamarin." },
+  { name: "Le Morne", country: "Mauritius", lat: -20.46, lng: 57.31, wiki: "Le Morne Brabant",
+    fact: "A basalt monolith rises behind the lagoon; escaped slaves once sheltered on its summit." },
+  { name: "Agadir Beach", country: "Morocco", lat: 30.42, lng: -9.61, wiki: "Agadir",
+    fact: "A ten-kilometre bay rebuilt from nothing after the 1960 earthquake." },
+  { name: "Essaouira Beach", country: "Morocco", lat: 31.513, lng: -9.77, wiki: "Essaouira",
+    fact: "Reliable Atlantic trade winds make this a kitesurfing town behind 18th-century ramparts." },
+  { name: "Legzira Beach", country: "Morocco", lat: 29.42, lng: -10.03, wiki: "Legzira",
+    fact: "One of its two famous red sandstone arches collapsed suddenly in 2016." },
+  { name: "Bazaruto Archipelago", country: "Mozambique", lat: -21.6, lng: 35.4667, wiki: "Bazaruto Archipelago",
+    fact: "Enormous dunes on sand islands holding one of the last dugong populations in the region." },
+  { name: "Praia do Tofo", country: "Mozambique", lat: -23.856, lng: 35.545, wiki: "Praia do Tofo",
+    fact: "Manta rays and whale sharks feed year-round just beyond the surf." },
+  { name: "Anse Lazio, Praslin", country: "Seychelles", lat: -4.2986, lng: 55.6969, wiki: "Anse Lazio",
+    fact: "Granite headlands at either end frame takamaka trees leaning over the sand." },
+  { name: "Anse Source d'Argent", country: "Seychelles", lat: -4.3667, lng: 55.8258, wiki: "Anse Source d'Argent",
+    fact: "Its sculpted boulders are granite — unusual for a tropical island, which are usually volcanic or coral." },
+  { name: "Boulders Beach", country: "South Africa", lat: -34.1972, lng: 18.4519, wiki: "Boulders Beach",
+    fact: "A colony of African penguins settled here in 1982 and now numbers in the thousands." },
+  { name: "Camps Bay", country: "South Africa", lat: -33.9508, lng: 18.3775, wiki: "Camps Bay",
+    fact: "The Twelve Apostles ridge of Table Mountain rises straight up behind the sand." },
+  { name: "Durban Golden Mile", country: "South Africa", lat: -29.857, lng: 31.04, wiki: "Durban",
+    fact: "A warm Indian Ocean beachfront with shark nets and a paved promenade." },
+  { name: "Jeffreys Bay", country: "South Africa", lat: -34.049, lng: 24.916, wiki: "Jeffreys Bay",
+    fact: "Supertubes is regarded as one of the finest right-hand point breaks anywhere." },
+  { name: "Muizenberg", country: "South Africa", lat: -34.108, lng: 18.47, wiki: "Muizenberg",
+    fact: "A row of brightly painted Victorian bathing boxes stands on the sand." },
+  { name: "Nungwi Beach, Zanzibar", country: "Tanzania", lat: -5.7264, lng: 39.2966, wiki: "Nungwi",
+    fact: "One of the few Zanzibar beaches barely affected by the island's huge tidal swings." },
+  { name: "Hammamet", country: "Tunisia", lat: 36.4, lng: 10.62, wiki: "Hammamet, Tunisia",
+    fact: "Whitewashed walls and a seaside kasbah on the Gulf of Hammamet." },
+  { name: "Jumeirah Beach", country: "United Arab Emirates", lat: 25.14, lng: 55.19, wiki: "Jumeirah Beach",
+    fact: "The sail-shaped Burj Al Arab hotel stands on its own island just offshore." },
+
+  // ---- North America & the Caribbean (44)
+  { name: "Eagle Beach", country: "Aruba", lat: 12.5556, lng: -70.0525, wiki: "Eagle Beach",
+    fact: "Its wind-bent divi-divi trees always point southwest, thanks to the trade winds." },
+  { name: "Pink Sands Beach", country: "Bahamas", lat: 25.5, lng: -76.6167, wiki: "Harbour Island, Bahamas",
+    fact: "The blush colour comes from crushed shells of foraminifera, a single-celled marine organism." },
+  { name: "Bathsheba", country: "Barbados", lat: 13.213, lng: -59.524, wiki: "Bathsheba, Barbados",
+    fact: "The Atlantic side of the island — huge mushroom rocks and the 'Soup Bowl' surf break." },
+  { name: "Cavendish Beach", country: "Canada", lat: 46.5, lng: -63.4, wiki: "Cavendish, Prince Edward Island",
+    fact: "Red sandstone cliffs and dunes in the landscape of 'Anne of Green Gables'." },
+  { name: "Long Beach, Tofino", country: "Canada", lat: 49.05, lng: -125.75, wiki: "Long Beach (Vancouver Island)",
+    fact: "Winter storm-watching draws as many visitors as summer surfing does." },
+  { name: "Seven Mile Beach", country: "Cayman Islands", lat: 19.34, lng: -81.383, wiki: "Seven Mile Beach, Grand Cayman",
+    fact: "Despite the name it runs about 5.5 miles along Grand Cayman's west shore." },
+  { name: "Manuel Antonio Beach", country: "Costa Rica", lat: 9.39, lng: -84.15, wiki: "Manuel Antonio National Park",
+    fact: "Sloths, capuchins and squirrel monkeys live in the rainforest that runs right to the sand." },
+  { name: "Playa Conchal", country: "Costa Rica", lat: 10.393, lng: -85.828, wiki: "Playa Conchal",
+    fact: "The 'beach' is made of crushed seashells rather than sand." },
+  { name: "Santa Teresa", country: "Costa Rica", lat: 9.644, lng: -85.167, wiki: "Santa Teresa, Costa Rica",
+    fact: "A dirt-road surf town at the tip of the Nicoya Peninsula." },
+  { name: "Varadero", country: "Cuba", lat: 23.155, lng: -81.245, wiki: "Varadero",
+    fact: "A 20 km sandbar peninsula so narrow you can see water on both sides at once." },
+  { name: "Lover's Beach, Cabo San Lucas", country: "Mexico", lat: 22.873, lng: -109.907, wiki: "Cabo San Lucas",
+    fact: "A neck of sand between the Pacific and the Sea of Cortés, by the granite arch." },
+  { name: "Playa Balandra", country: "Mexico", lat: 24.32, lng: -110.335, wiki: "Balandra Beach",
+    fact: "The bay is so shallow you can walk across most of it at low tide." },
+  { name: "Playa Delfines, Cancún", country: "Mexico", lat: 21.07, lng: -86.77, wiki: "Cancún",
+    fact: "One of the few Cancún beaches with no hotel between the road and the sand." },
+  { name: "Playa del Carmen", country: "Mexico", lat: 20.627, lng: -87.074, wiki: "Playa del Carmen",
+    fact: "Ferries leave for Cozumel from a beach that was a fishing village 40 years ago." },
+  { name: "Sayulita", country: "Mexico", lat: 20.869, lng: -105.441, wiki: "Sayulita",
+    fact: "A Pacific surf town with Huichol beadwork sold along the beachfront." },
+  { name: "Tulum Beach", country: "Mexico", lat: 20.2114, lng: -87.429, wiki: "Tulum",
+    fact: "The only major Maya city built on the coast, its cliff temple watched over trade canoes." },
+  { name: "Zipolite", country: "Mexico", lat: 15.665, lng: -96.51, wiki: "Zipolite",
+    fact: "Mexico's first legally nude beach, on a wild stretch of the Oaxacan coast." },
+  { name: "Bocas del Toro", country: "Panama", lat: 9.34, lng: -82.24, wiki: "Bocas del Toro Province",
+    fact: "Caribbean islands of stilt houses, mangroves and red frogs." },
+  { name: "Guna Yala (San Blas)", country: "Panama", lat: 9.57, lng: -78.82, wiki: "Guna Yala",
+    fact: "An autonomous Indigenous territory of some 365 islands, most of them uninhabited." },
   { name: "Playa Flamenco", country: "Puerto Rico", lat: 18.3269, lng: -65.3167, wiki: "Flamenco Beach",
     fact: "Two rusting US Navy tanks from bombing-range days sit half-buried in the sand." },
-  { name: "Sunset Beach, Oahu", country: "United States", lat: 21.6795, lng: -158.0400, wiki: "Sunset Beach, Hawaii",
-    fact: "Flat as a lake in summer; in winter it hosts 30-foot North Shore surf." }
+  { name: "Grace Bay", country: "Turks and Caicos", lat: 21.796, lng: -72.19, wiki: "Grace Bay",
+    fact: "A barrier reef offshore keeps the water flat and free of seaweed year-round." },
+  { name: "Trunk Bay", country: "U.S. Virgin Islands", lat: 18.3527, lng: -64.7686, wiki: "Trunk Bay",
+    fact: "It has an underwater snorkelling trail with plaques identifying the coral." },
+  { name: "Bandon Beach", country: "United States", lat: 43.117, lng: -124.434, wiki: "Bandon, Oregon",
+    fact: "Face Rock and its neighbouring monoliths stand offshore in the surf." },
+  { name: "Cannon Beach", country: "United States", lat: 45.8847, lng: -123.9686, wiki: "Cannon Beach, Oregon",
+    fact: "Haystack Rock rises 235 ft and is a protected nesting site for tufted puffins." },
+  { name: "Cape Hatteras", country: "United States", lat: 35.25, lng: -75.529, wiki: "Cape Hatteras",
+    fact: "The Outer Banks shoals have wrecked so many ships they are called the Graveyard of the Atlantic." },
+  { name: "Clearwater Beach", country: "United States", lat: 27.978, lng: -82.827, wiki: "Clearwater Beach",
+    fact: "A nightly sunset festival with buskers has run on the pier for decades." },
+  { name: "Coronado Beach", country: "United States", lat: 32.681, lng: -117.183, wiki: "Coronado, California",
+    fact: "Mica in the sand makes it sparkle in front of the Hotel del Coronado." },
+  { name: "Glass Beach", country: "United States", lat: 39.455, lng: -123.813, wiki: "Glass Beach (Fort Bragg, California)",
+    fact: "Decades of dumped bottles were tumbled by surf into smooth sea glass that now covers the shore." },
+  { name: "Hanalei Bay", country: "United States", lat: 22.205, lng: -159.5, wiki: "Hanalei Bay",
+    fact: "A two-mile crescent under green mountains that catch some of Earth's heaviest rainfall." },
+  { name: "Ka'anapali Beach", country: "United States", lat: 20.925, lng: -156.695, wiki: "Kaanapali, Hawaii",
+    fact: "A cliff-diving ceremony is performed off Black Rock at sunset each evening." },
+  { name: "La Jolla Cove", country: "United States", lat: 32.85, lng: -117.272, wiki: "La Jolla",
+    fact: "Sea lions haul out on the rocks in numbers, metres from swimmers." },
+  { name: "Lanikai Beach", country: "United States", lat: 21.393, lng: -157.715, wiki: "Lanikai Beach",
+    fact: "Two small islands, the Mokulua, sit just offshore from a half-mile of sand." },
+  { name: "Myrtle Beach", country: "United States", lat: 33.689, lng: -78.886, wiki: "Myrtle Beach, South Carolina",
+    fact: "The centre of a 60-mile arc of sand known as the Grand Strand." },
+  { name: "Papakōlea Green Sand Beach", country: "United States", lat: 18.936, lng: -155.646, wiki: "Papakōlea Beach",
+    fact: "One of only a handful of green sand beaches, coloured by olivine from a cinder cone." },
+  { name: "Pfeiffer Beach", country: "United States", lat: 36.238, lng: -121.8, wiki: "Pfeiffer Beach",
+    fact: "Purple manganese-garnet sand, and a keyhole rock the winter sun shines through." },
+  { name: "Punalu'u Black Sand Beach", country: "United States", lat: 19.136, lng: -155.504, wiki: "Punalu'u Beach",
+    fact: "Green sea turtles bask on sand made of lava shattered by the sea." },
+  { name: "Race Point, Cape Cod", country: "United States", lat: 42.07, lng: -70.24, wiki: "Cape Cod",
+    fact: "Right whales feed offshore in spring at the very tip of the Cape." },
+  { name: "Ruby Beach", country: "United States", lat: 47.71, lng: -124.416, wiki: "Ruby Beach",
+    fact: "Sea stacks and bleached driftwood logs on the Olympic Peninsula's rainforest coast." },
+  { name: "Siesta Key", country: "United States", lat: 27.267, lng: -82.55, wiki: "Siesta Key",
+    fact: "The sand is 99% quartz, so fine and reflective that it stays cool in full sun." },
+  { name: "South Beach, Miami", country: "United States", lat: 25.7825, lng: -80.13, wiki: "South Beach",
+    fact: "Its pastel lifeguard towers were rebuilt as art pieces after Hurricane Andrew." },
+  { name: "Sunset Beach, Oahu", country: "United States", lat: 21.6795, lng: -158.04, wiki: "Sunset Beach, Hawaii",
+    fact: "Flat as a lake in summer; in winter it hosts 30-foot North Shore surf." },
+  { name: "Venice Beach", country: "United States", lat: 33.985, lng: -118.4695, wiki: "Venice, Los Angeles",
+    fact: "The boardwalk's outdoor weight pen has been called Muscle Beach since the 1950s." },
+  { name: "Waikiki Beach", country: "United States", lat: 21.2767, lng: -157.8271, wiki: "Waikiki",
+    fact: "Much of its sand was barged in from elsewhere in Hawaii and California to widen the shore." },
+  { name: "Zuma Beach", country: "United States", lat: 34.017, lng: -118.825, wiki: "Zuma Beach",
+    fact: "Malibu's widest beach, and a stand-in for countless film and television shoots." },
+
+  // ---- South America (14)
+  { name: "Mar del Plata", country: "Argentina", lat: -38.0, lng: -57.54, wiki: "Mar del Plata",
+    fact: "Sea lions crowd the old fishing port at the end of the beachfront." },
+  { name: "Baía do Sancho", country: "Brazil", lat: -3.8583, lng: -32.4444, wiki: "Baía do Sancho",
+    fact: "Reached by a ladder bolted into a crack in the cliff face." },
+  { name: "Copacabana", country: "Brazil", lat: -22.9711, lng: -43.1822, wiki: "Copacabana, Rio de Janeiro",
+    fact: "The black-and-white wave pattern on the promenade is a Portuguese calçada design laid in 1970." },
+  { name: "Ipanema", country: "Brazil", lat: -22.9868, lng: -43.2064, wiki: "Ipanema",
+    fact: "The bossa nova standard 'The Girl from Ipanema' was written about a girl walking to this beach." },
+  { name: "Jericoacoara", country: "Brazil", lat: -2.7961, lng: -40.5122, wiki: "Jericoacoara",
+    fact: "There are no paved streets — you get there across dunes by 4x4." },
+  { name: "Praia da Joaquina", country: "Brazil", lat: -27.627, lng: -48.447, wiki: "Florianópolis",
+    fact: "Sandboarding down the dunes behind the beach is as popular as the surf." },
+  { name: "Praia do Forte", country: "Brazil", lat: -12.58, lng: -38.0, wiki: "Praia do Forte",
+    fact: "A sea turtle conservation project releases hatchlings from this Bahian beach." },
+  { name: "Anakena", country: "Chile", lat: -27.0728, lng: -109.3239, wiki: "Anakena",
+    fact: "Seven restored moai stand on the platform behind the sand on Easter Island." },
+  { name: "Viña del Mar", country: "Chile", lat: -33.01, lng: -71.55, wiki: "Viña del Mar",
+    fact: "A flower clock and cold Humboldt Current water define Chile's 'Garden City'." },
+  { name: "Playa Blanca, Cartagena", country: "Colombia", lat: 10.17, lng: -75.67, wiki: "Cartagena, Colombia",
+    fact: "White sand on Barú, an hour by boat from a walled colonial city." },
+  { name: "Tayrona", country: "Colombia", lat: 11.31, lng: -74.07, wiki: "Tayrona National Natural Park",
+    fact: "Jungle and boulders meet the Caribbean below the Sierra Nevada de Santa Marta." },
+  { name: "Tortuga Bay", country: "Ecuador", lat: -0.766, lng: -90.33, wiki: "Tortuga Bay",
+    fact: "Marine iguanas and reef sharks share the sand, a 40-minute walk from Puerto Ayora." },
+  { name: "Máncora", country: "Peru", lat: -4.105, lng: -81.05, wiki: "Máncora",
+    fact: "Warm water year-round on a desert coast, with a long left-hand point break." },
+  { name: "Punta del Este", country: "Uruguay", lat: -34.96, lng: -54.94, wiki: "Punta del Este",
+    fact: "A giant sculpted hand emerges from the sand at Playa Brava." }
 ];
 
 if (typeof module !== "undefined") { module.exports = BEACHES; }
@@ -1598,7 +2072,7 @@ const PhotoService = (function () {
   const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
   const REQUEST_TIMEOUT_MS = 15000;
   const TARGET_WIDTH = 1600;
-  const MAX_PHOTOS_PER_BEACH = 4;
+  const MAX_PHOTOS_PER_BEACH = 8;
 
   /** Files whose names give them away as non-photographic page furniture. */
   const REJECT_NAME = new RegExp([
@@ -1664,13 +2138,13 @@ const PhotoService = (function () {
 
     const w = info.width, h = info.height;
     if (!w || !h) return false;
-    if (w < 900 || h < 500) return false;          // too small to fill a stage
+    if (w < 700 || h < 400) return false;           // too small to fill a stage
     const ratio = w / h;
-    if (ratio < 0.9 || ratio > 3.2) return false;  // panoramas and tall crops
+    if (ratio < 0.75 || ratio > 3.4) return false;  // extreme panoramas and tall crops
     return true;
   }
 
-  function toPhoto(page, isLead) {
+  function toPhoto(page, isLead, source) {
     const info = page.imageinfo[0];
     const meta = info.extmetadata || {};
     const value = (k) => (meta[k] && meta[k].value) || "";
@@ -1680,6 +2154,7 @@ const PhotoService = (function () {
       width: info.thumbwidth || info.width,
       height: info.thumbheight || info.height,
       isLead: !!isLead,
+      source: source,
       credit: {
         title: page.title.replace(/^File:/, ""),
         author: plainText(value("Artist")) || "Unknown author",
@@ -1691,10 +2166,15 @@ const PhotoService = (function () {
     };
   }
 
-  /** Best photo first: article lead image, then big landscape shots. */
+  /**
+   * Best photo first: the article's lead image, then the rest of the article's
+   * images, then geo-tagged finds from Commons; big landscape shots ahead of
+   * small or oddly-shaped ones within each tier.
+   */
   function rank(photos) {
+    const tier = (p) => (p.isLead ? 0 : p.source === "article" ? 1 : 2);
     return photos.sort((a, b) => {
-      if (a.isLead !== b.isLead) return a.isLead ? -1 : 1;
+      if (tier(a) !== tier(b)) return tier(a) - tier(b);
       const score = (p) => {
         const ratio = p.width / p.height;
         const landscape = ratio >= 1.2 && ratio <= 2.2 ? 1.35 : 1;
@@ -1732,7 +2212,7 @@ const PhotoService = (function () {
       pages.filter(usable).map((p) => {
         const bare = p.title.replace(/^File:/, "").replace(/ /g, "_");
         const leadMatch = leadName && bare === leadName.replace(/ /g, "_");
-        return toPhoto(p, leadMatch);
+        return toPhoto(p, leadMatch, "article");
       })
     );
   }
@@ -1751,7 +2231,7 @@ const PhotoService = (function () {
       iiextmetadatafilter: "Artist|LicenseShortName|LicenseUrl|Credit"
     });
     const pages = (res.query && res.query.pages) || [];
-    return rank(pages.filter(usable).map((p) => toPhoto(p, false)));
+    return rank(pages.filter(usable).map((p) => toPhoto(p, false, "geo")));
   }
 
   /* ------------------------------------------------------------------ */
@@ -1770,19 +2250,25 @@ const PhotoService = (function () {
   }
 
   async function resolve(beach) {
-    let photos = [];
-    try {
-      photos = await fromArticle(beach.wiki);
-    } catch (err) {
-      console.warn("article lookup failed for", beach.wiki, err);
-    }
-    if (photos.length === 0) {
-      try {
-        photos = await fromGeoSearch(beach);
-      } catch (err) {
+    const [fromArticleResult, fromGeoResult] = await Promise.all([
+      fromArticle(beach.wiki).catch((err) => {
+        console.warn("article lookup failed for", beach.wiki, err);
+        return [];
+      }),
+      fromGeoSearch(beach).catch((err) => {
         console.warn("geo-search failed for", beach.name, err);
-      }
-    }
+        return [];
+      })
+    ]);
+
+    // Commons files often appear in both sets; keep the article's copy.
+    const seen = new Set();
+    const photos = rank(fromArticleResult.concat(fromGeoResult).filter((p) => {
+      if (seen.has(p.credit.title)) return false;
+      seen.add(p.credit.title);
+      return true;
+    }));
+
     if (photos.length === 0) throw new Error("no usable photo for " + beach.name);
 
     // Confirm one photo decodes so the round is guaranteed to render, then
@@ -1831,7 +2317,10 @@ const PhotoService = (function () {
   /* config                                                            */
   /* ---------------------------------------------------------------- */
 
-  const ROUND_SECONDS = 60;
+  // A round runs in two phases: study the photo, then place the pin.
+  // The player can end the look phase early with "go to the map".
+  const LOOK_SECONDS = 60;
+  const GUESS_SECONDS = 30;
   const MAX_POINTS = 5000;
   const PERFECT_KM = 25;          // anything this close is a bullseye
   const DECAY_KM = 1500;          // how fast points fall off with distance
@@ -1870,6 +2359,7 @@ const PhotoService = (function () {
     photoPrev: $("photo-prev"), photoNext: $("photo-next"), photoCount: $("photo-count"),
     roundPill: $("round-pill"), timer: $("timer"), timerRing: $("timer-ring"),
     timerNum: $("timer-num"), scoreTotal: $("score-total"),
+    timerLabel: $("timer-label"), toMap: $("btn-to-map"), peek: $("stage-peek"),
     mappanel: $("mappanel"), mapToggle: $("map-toggle"),
     guessHint: $("guess-hint"), guessBtn: $("btn-guess"),
     revealEyebrow: $("reveal-eyebrow"), revealName: $("reveal-name"),
@@ -1880,6 +2370,7 @@ const PhotoService = (function () {
     finalPoints: $("final-points"), finalMax: $("final-max"),
     finalRank: $("final-rank"), breakdown: $("breakdown"),
     again: $("btn-again"), home: $("btn-home"), best: $("best-line"),
+    poolNote: $("pool-note"),
     toast: $("toast")
   };
 
@@ -2018,7 +2509,9 @@ const PhotoService = (function () {
       worldCopyJump: true,
       zoomControl: true,
       attributionControl: true,
-      minZoom: 0
+      minZoom: 0,
+      zoomSnap: 0,
+      zoomDelta: 1
     }).setView([20, 0], 1);
     guessLayer = baseLayer().addTo(guessMap);
 
@@ -2026,7 +2519,7 @@ const PhotoService = (function () {
     guessMap.on("zoomstart movestart", () => { if (!framing) playerFramed = true; });
 
     guessMap.on("click", (e) => {
-      if (!round || round.submitted) return;
+      if (!round || round.submitted || round.phase !== "guess") return;
       const pos = normalise(e.latlng);
       if (guessMarker) {
         guessMarker.setLatLng(e.latlng);
@@ -2049,7 +2542,9 @@ const PhotoService = (function () {
       worldCopyJump: true,
       zoomControl: true,
       attributionControl: true,
-      minZoom: 0
+      minZoom: 0,
+      zoomSnap: 0,
+      zoomDelta: 1
     }).setView([20, 0], 2);
     resultBase = baseLayer().addTo(resultMap);
   }
@@ -2062,6 +2557,10 @@ const PhotoService = (function () {
 
   /** Fits the whole world to whatever size the panel currently is. */
   function frameWorld() {
+    // During the look phase the panel is display:none, so it has no size to
+    // fit bounds to. Entering the guess phase reframes it once it is visible.
+    const box = guessMap.getContainer();
+    if (!box.clientWidth || !box.clientHeight) return;
     framing = true;
     guessMap.invalidateSize({ animate: false });
     guessMap.fitBounds(WORLD_VIEW, { animate: false });
@@ -2078,6 +2577,7 @@ const PhotoService = (function () {
   }
 
   function setMapOpen(open) {
+    if (round && round.phase === "guess") return;  // the map is already full-screen
     el.mappanel.classList.toggle("is-open", open);
     el.mapToggle.setAttribute("aria-expanded", String(open));
     el.mapToggle.setAttribute("aria-label", open ? "Shrink map" : "Expand map");
@@ -2166,13 +2666,15 @@ const PhotoService = (function () {
       photos: entry.photos,
       photoIndex: 0,
       guess: null,
-      submitted: false
+      submitted: false,
+      phase: "look",
+      phaseSeconds: LOOK_SECONDS
     };
 
     el.roundPill.textContent = "Round " + (game.index + 1) + " / " + game.rounds.length;
     showPhoto(0);
     resetGuessMap();
-    startTimer();
+    setPhase("look");
 
     // Warm the next round's photo while this one is being played.
     const next = game.rounds[game.index + 1];
@@ -2193,24 +2695,46 @@ const PhotoService = (function () {
     };
     el.photo.src = photo.src;
     el.photo.alt = "An unidentified beach — round " + (game.index + 1);
-    el.photoCredit.innerHTML = creditHTML(photo);
+    // Deliberately no filename or author here: Commons titles usually contain
+    // the beach's name, which would hand the player the answer. The full
+    // credit appears on the reveal screen instead.
 
     const many = photos.length > 1;
     el.photoNav.hidden = !many;
     el.photoCount.textContent = (round.photoIndex + 1) + " / " + photos.length;
   }
 
-  function startTimer() {
-    const ring = el.timerRing;
-    const circumference = 2 * Math.PI * 19;
-    ring.style.strokeDasharray = circumference;
-    ring.style.strokeDashoffset = "0";
-    el.timer.classList.remove("is-warn", "is-urgent");
-    el.timerNum.textContent = ROUND_SECONDS;
+  /**
+   * "look" shows the photo full-screen with no map; "guess" hands the screen
+   * over to the map. Entering a phase always restarts its own clock, so
+   * skipping the look phase early still leaves the full guessing time.
+   */
+  function setPhase(name) {
+    if (!round || round.submitted) return;
+    round.phase = name;
+    round.phaseSeconds = name === "look" ? LOOK_SECONDS : GUESS_SECONDS;
+    round.deadline = Date.now() + round.phaseSeconds * 1000;
 
-    round.deadline = Date.now() + ROUND_SECONDS * 1000;
+    screens.play.classList.toggle("phase-look", name === "look");
+    screens.play.classList.toggle("phase-guess", name === "guess");
+    setPeek(false);
+
+    el.timerLabel.textContent = name === "look" ? "Look" : "Guess";
+    el.timer.classList.remove("is-warn", "is-urgent");
+    el.timerRing.style.strokeDasharray = 2 * Math.PI * 19;
+    el.timerRing.style.strokeDashoffset = "0";
+    el.timerNum.textContent = round.phaseSeconds;
+
+    if (name === "guess") {
+      // The panel is now full-screen, so the map has to be re-measured.
+      if (playerFramed) guessMap.invalidateSize({ animate: false });
+      else frameWorld();
+      el.guessBtn.focus();
+    }
+
     clearInterval(ticker);
     ticker = setInterval(tick, 200);
+    tick();
   }
 
   function tick() {
@@ -2220,13 +2744,21 @@ const PhotoService = (function () {
     el.timerNum.textContent = seconds;
 
     const circumference = 2 * Math.PI * 19;
-    const fraction = 1 - remaining / (ROUND_SECONDS * 1000);
+    const fraction = 1 - remaining / (round.phaseSeconds * 1000);
     el.timerRing.style.strokeDashoffset = (circumference * fraction).toFixed(2);
 
     el.timer.classList.toggle("is-warn", seconds <= 20 && seconds > 10);
     el.timer.classList.toggle("is-urgent", seconds <= 10);
 
-    if (remaining <= 0) submitGuess(true);
+    if (remaining > 0) return;
+    if (round.phase === "look") setPhase("guess");
+    else submitGuess(true);
+  }
+
+  /** Enlarges the photo thumbnail that sits over the map while guessing. */
+  function setPeek(open) {
+    screens.play.classList.toggle("is-peeking", open);
+    el.peek.setAttribute("aria-expanded", String(open));
   }
 
   function submitGuess(timedOut) {
@@ -2399,6 +2931,10 @@ const PhotoService = (function () {
   el.home.addEventListener("click", () => show("start"));
   el.nextBtn.addEventListener("click", advance);
   el.guessBtn.addEventListener("click", () => submitGuess(false));
+  el.toMap.addEventListener("click", () => setPhase("guess"));
+  el.peek.addEventListener("click", () => {
+    setPeek(!screens.play.classList.contains("is-peeking"));
+  });
   el.mapToggle.addEventListener("click", () => {
     setMapOpen(!el.mappanel.classList.contains("is-open"));
   });
@@ -2408,9 +2944,17 @@ const PhotoService = (function () {
 
   document.addEventListener("keydown", (e) => {
     if (screens.play.classList.contains("is-active")) {
-      if (e.key === "Enter" && !el.guessBtn.disabled) { e.preventDefault(); submitGuess(false); }
-      if (e.key === "m" || e.key === "M") setMapOpen(!el.mappanel.classList.contains("is-open"));
-      if (e.key === "Escape") setMapOpen(false);
+      const looking = round && round.phase === "look";
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (looking) setPhase("guess");
+        else if (!el.guessBtn.disabled) submitGuess(false);
+      }
+      if (e.key === "m" || e.key === "M") {
+        if (looking) setPhase("guess");
+        else setPeek(!screens.play.classList.contains("is-peeking"));
+      }
+      if (e.key === "Escape") setPeek(false);
       if (e.key === "ArrowLeft" && round && round.photos.length > 1) showPhoto(round.photoIndex - 1);
       if (e.key === "ArrowRight" && round && round.photos.length > 1) showPhoto(round.photoIndex + 1);
     } else if (screens.reveal.classList.contains("is-active") && e.key === "Enter") {
@@ -2423,6 +2967,11 @@ const PhotoService = (function () {
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && round && !round.submitted) tick();
   });
+
+  // Make it clear the round count is a per-game setting, not the whole pool.
+  el.poolNote.innerHTML = "Drawn at random from <b>" + nf(BEACHES.length) +
+    " beaches</b> in " + nf(new Set(BEACHES.map(function (b) { return b.country; })).size) +
+    " countries.";
 
   renderBest();
 })();

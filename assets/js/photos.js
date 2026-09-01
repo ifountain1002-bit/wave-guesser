@@ -20,7 +20,7 @@ const PhotoService = (function () {
   const COMMONS_API = "https://commons.wikimedia.org/w/api.php";
   const REQUEST_TIMEOUT_MS = 15000;
   const TARGET_WIDTH = 1600;
-  const MAX_PHOTOS_PER_BEACH = 4;
+  const MAX_PHOTOS_PER_BEACH = 8;
 
   /** Files whose names give them away as non-photographic page furniture. */
   const REJECT_NAME = new RegExp([
@@ -86,13 +86,13 @@ const PhotoService = (function () {
 
     const w = info.width, h = info.height;
     if (!w || !h) return false;
-    if (w < 900 || h < 500) return false;          // too small to fill a stage
+    if (w < 700 || h < 400) return false;           // too small to fill a stage
     const ratio = w / h;
-    if (ratio < 0.9 || ratio > 3.2) return false;  // panoramas and tall crops
+    if (ratio < 0.75 || ratio > 3.4) return false;  // extreme panoramas and tall crops
     return true;
   }
 
-  function toPhoto(page, isLead) {
+  function toPhoto(page, isLead, source) {
     const info = page.imageinfo[0];
     const meta = info.extmetadata || {};
     const value = (k) => (meta[k] && meta[k].value) || "";
@@ -102,6 +102,7 @@ const PhotoService = (function () {
       width: info.thumbwidth || info.width,
       height: info.thumbheight || info.height,
       isLead: !!isLead,
+      source: source,
       credit: {
         title: page.title.replace(/^File:/, ""),
         author: plainText(value("Artist")) || "Unknown author",
@@ -113,10 +114,15 @@ const PhotoService = (function () {
     };
   }
 
-  /** Best photo first: article lead image, then big landscape shots. */
+  /**
+   * Best photo first: the article's lead image, then the rest of the article's
+   * images, then geo-tagged finds from Commons; big landscape shots ahead of
+   * small or oddly-shaped ones within each tier.
+   */
   function rank(photos) {
+    const tier = (p) => (p.isLead ? 0 : p.source === "article" ? 1 : 2);
     return photos.sort((a, b) => {
-      if (a.isLead !== b.isLead) return a.isLead ? -1 : 1;
+      if (tier(a) !== tier(b)) return tier(a) - tier(b);
       const score = (p) => {
         const ratio = p.width / p.height;
         const landscape = ratio >= 1.2 && ratio <= 2.2 ? 1.35 : 1;
@@ -154,7 +160,7 @@ const PhotoService = (function () {
       pages.filter(usable).map((p) => {
         const bare = p.title.replace(/^File:/, "").replace(/ /g, "_");
         const leadMatch = leadName && bare === leadName.replace(/ /g, "_");
-        return toPhoto(p, leadMatch);
+        return toPhoto(p, leadMatch, "article");
       })
     );
   }
@@ -173,7 +179,7 @@ const PhotoService = (function () {
       iiextmetadatafilter: "Artist|LicenseShortName|LicenseUrl|Credit"
     });
     const pages = (res.query && res.query.pages) || [];
-    return rank(pages.filter(usable).map((p) => toPhoto(p, false)));
+    return rank(pages.filter(usable).map((p) => toPhoto(p, false, "geo")));
   }
 
   /* ------------------------------------------------------------------ */
@@ -192,19 +198,25 @@ const PhotoService = (function () {
   }
 
   async function resolve(beach) {
-    let photos = [];
-    try {
-      photos = await fromArticle(beach.wiki);
-    } catch (err) {
-      console.warn("article lookup failed for", beach.wiki, err);
-    }
-    if (photos.length === 0) {
-      try {
-        photos = await fromGeoSearch(beach);
-      } catch (err) {
+    const [fromArticleResult, fromGeoResult] = await Promise.all([
+      fromArticle(beach.wiki).catch((err) => {
+        console.warn("article lookup failed for", beach.wiki, err);
+        return [];
+      }),
+      fromGeoSearch(beach).catch((err) => {
         console.warn("geo-search failed for", beach.name, err);
-      }
-    }
+        return [];
+      })
+    ]);
+
+    // Commons files often appear in both sets; keep the article's copy.
+    const seen = new Set();
+    const photos = rank(fromArticleResult.concat(fromGeoResult).filter((p) => {
+      if (seen.has(p.credit.title)) return false;
+      seen.add(p.credit.title);
+      return true;
+    }));
+
     if (photos.length === 0) throw new Error("no usable photo for " + beach.name);
 
     // Confirm one photo decodes so the round is guaranteed to render, then

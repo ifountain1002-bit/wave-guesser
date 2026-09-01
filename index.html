@@ -16,17 +16,17 @@
 <section class="screen screen--start is-active" id="screen-start">
   <div class="start-card">
     <h1 class="logo">Wave<span>Guesser</span></h1>
-    <p class="tagline">Somewhere on Earth, this is the view from the sand.<br>You have <strong>60 seconds</strong> to say where.</p>
+    <p class="tagline">Somewhere on Earth, this is the view from the sand.<br><strong>One minute</strong> to study it, then <strong>30 seconds</strong> to say where.</p>
 
     <ol class="how">
-      <li><span>1</span> Study the beach photo.</li>
-      <li><span>2</span> Drop a pin on the world map.</li>
+      <li><span>1</span> Study the beach — 60 seconds, and several photos to flick through.</li>
+      <li><span>2</span> Go to the map, early if you're ready, and drop your pin within 30 seconds.</li>
       <li><span>3</span> The closer you land, the more you score — up to 5,000 a round.</li>
     </ol>
 
     <div class="options">
       <fieldset class="opt">
-        <legend>Rounds</legend>
+        <legend>Beaches per game</legend>
         <div class="segmented" role="radiogroup" aria-label="Number of rounds">
           <button type="button" role="radio" class="seg" data-rounds="3">3</button>
           <button type="button" role="radio" class="seg is-on" data-rounds="5" aria-checked="true">5</button>
@@ -45,6 +45,7 @@
 
     <button class="btn btn--primary btn--big" id="btn-play">Start guessing</button>
     <p class="best" id="best-line" hidden></p>
+    <p class="pool-note" id="pool-note"></p>
     <p class="credit-note">Photos are loaded live from Wikipedia &amp; Wikimedia Commons. Map data © OpenStreetMap contributors.</p>
   </div>
 </section>
@@ -72,17 +73,23 @@
       <button class="iconbtn" id="photo-next" aria-label="Next photo of this beach">›</button>
     </div>
 
-    <p class="photo-credit" id="photo-credit"></p>
+    <p class="photo-credit" id="photo-credit">Photo from Wikimedia Commons &middot; full credit after you guess</p>
+
+    <button class="btn btn--primary stage__skip" id="btn-to-map">I'm ready &mdash; go to the map &rarr;</button>
+    <button class="stage__peek" id="stage-peek" aria-label="Enlarge the photo" aria-expanded="false"></button>
   </div>
 
   <header class="hud">
     <div class="hud__pill" id="round-pill">Round 1 / 5</div>
-    <div class="timer" id="timer" role="timer" aria-live="off">
-      <svg viewBox="0 0 44 44" aria-hidden="true">
-        <circle class="timer__track" cx="22" cy="22" r="19"></circle>
-        <circle class="timer__ring" id="timer-ring" cx="22" cy="22" r="19"></circle>
-      </svg>
-      <span id="timer-num">60</span>
+    <div class="hud__clock">
+      <div class="timer" id="timer" role="timer" aria-live="off">
+        <svg viewBox="0 0 44 44" aria-hidden="true">
+          <circle class="timer__track" cx="22" cy="22" r="19"></circle>
+          <circle class="timer__ring" id="timer-ring" cx="22" cy="22" r="19"></circle>
+        </svg>
+        <span id="timer-num">60</span>
+      </div>
+      <p class="timer-label" id="timer-label">Look</p>
     </div>
     <div class="hud__pill hud__pill--score">Score <b id="score-total">0</b></div>
   </header>

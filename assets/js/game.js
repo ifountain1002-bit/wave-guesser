@@ -8,7 +8,10 @@
   /* config                                                            */
   /* ---------------------------------------------------------------- */
 
-  const ROUND_SECONDS = 60;
+  // A round runs in two phases: study the photo, then place the pin.
+  // The player can end the look phase early with "go to the map".
+  const LOOK_SECONDS = 60;
+  const GUESS_SECONDS = 30;
   const MAX_POINTS = 5000;
   const PERFECT_KM = 25;          // anything this close is a bullseye
   const DECAY_KM = 1500;          // how fast points fall off with distance
@@ -47,6 +50,7 @@
     photoPrev: $("photo-prev"), photoNext: $("photo-next"), photoCount: $("photo-count"),
     roundPill: $("round-pill"), timer: $("timer"), timerRing: $("timer-ring"),
     timerNum: $("timer-num"), scoreTotal: $("score-total"),
+    timerLabel: $("timer-label"), toMap: $("btn-to-map"), peek: $("stage-peek"),
     mappanel: $("mappanel"), mapToggle: $("map-toggle"),
     guessHint: $("guess-hint"), guessBtn: $("btn-guess"),
     revealEyebrow: $("reveal-eyebrow"), revealName: $("reveal-name"),
@@ -57,6 +61,7 @@
     finalPoints: $("final-points"), finalMax: $("final-max"),
     finalRank: $("final-rank"), breakdown: $("breakdown"),
     again: $("btn-again"), home: $("btn-home"), best: $("best-line"),
+    poolNote: $("pool-note"),
     toast: $("toast")
   };
 
@@ -195,7 +200,9 @@
       worldCopyJump: true,
       zoomControl: true,
       attributionControl: true,
-      minZoom: 0
+      minZoom: 0,
+      zoomSnap: 0,
+      zoomDelta: 1
     }).setView([20, 0], 1);
     guessLayer = baseLayer().addTo(guessMap);
 
@@ -203,7 +210,7 @@
     guessMap.on("zoomstart movestart", () => { if (!framing) playerFramed = true; });
 
     guessMap.on("click", (e) => {
-      if (!round || round.submitted) return;
+      if (!round || round.submitted || round.phase !== "guess") return;
       const pos = normalise(e.latlng);
       if (guessMarker) {
         guessMarker.setLatLng(e.latlng);
@@ -226,7 +233,9 @@
       worldCopyJump: true,
       zoomControl: true,
       attributionControl: true,
-      minZoom: 0
+      minZoom: 0,
+      zoomSnap: 0,
+      zoomDelta: 1
     }).setView([20, 0], 2);
     resultBase = baseLayer().addTo(resultMap);
   }
@@ -239,6 +248,10 @@
 
   /** Fits the whole world to whatever size the panel currently is. */
   function frameWorld() {
+    // During the look phase the panel is display:none, so it has no size to
+    // fit bounds to. Entering the guess phase reframes it once it is visible.
+    const box = guessMap.getContainer();
+    if (!box.clientWidth || !box.clientHeight) return;
     framing = true;
     guessMap.invalidateSize({ animate: false });
     guessMap.fitBounds(WORLD_VIEW, { animate: false });
@@ -255,6 +268,7 @@
   }
 
   function setMapOpen(open) {
+    if (round && round.phase === "guess") return;  // the map is already full-screen
     el.mappanel.classList.toggle("is-open", open);
     el.mapToggle.setAttribute("aria-expanded", String(open));
     el.mapToggle.setAttribute("aria-label", open ? "Shrink map" : "Expand map");
@@ -343,13 +357,15 @@
       photos: entry.photos,
       photoIndex: 0,
       guess: null,
-      submitted: false
+      submitted: false,
+      phase: "look",
+      phaseSeconds: LOOK_SECONDS
     };
 
     el.roundPill.textContent = "Round " + (game.index + 1) + " / " + game.rounds.length;
     showPhoto(0);
     resetGuessMap();
-    startTimer();
+    setPhase("look");
 
     // Warm the next round's photo while this one is being played.
     const next = game.rounds[game.index + 1];
@@ -370,24 +386,46 @@
     };
     el.photo.src = photo.src;
     el.photo.alt = "An unidentified beach — round " + (game.index + 1);
-    el.photoCredit.innerHTML = creditHTML(photo);
+    // Deliberately no filename or author here: Commons titles usually contain
+    // the beach's name, which would hand the player the answer. The full
+    // credit appears on the reveal screen instead.
 
     const many = photos.length > 1;
     el.photoNav.hidden = !many;
     el.photoCount.textContent = (round.photoIndex + 1) + " / " + photos.length;
   }
 
-  function startTimer() {
-    const ring = el.timerRing;
-    const circumference = 2 * Math.PI * 19;
-    ring.style.strokeDasharray = circumference;
-    ring.style.strokeDashoffset = "0";
-    el.timer.classList.remove("is-warn", "is-urgent");
-    el.timerNum.textContent = ROUND_SECONDS;
+  /**
+   * "look" shows the photo full-screen with no map; "guess" hands the screen
+   * over to the map. Entering a phase always restarts its own clock, so
+   * skipping the look phase early still leaves the full guessing time.
+   */
+  function setPhase(name) {
+    if (!round || round.submitted) return;
+    round.phase = name;
+    round.phaseSeconds = name === "look" ? LOOK_SECONDS : GUESS_SECONDS;
+    round.deadline = Date.now() + round.phaseSeconds * 1000;
 
-    round.deadline = Date.now() + ROUND_SECONDS * 1000;
+    screens.play.classList.toggle("phase-look", name === "look");
+    screens.play.classList.toggle("phase-guess", name === "guess");
+    setPeek(false);
+
+    el.timerLabel.textContent = name === "look" ? "Look" : "Guess";
+    el.timer.classList.remove("is-warn", "is-urgent");
+    el.timerRing.style.strokeDasharray = 2 * Math.PI * 19;
+    el.timerRing.style.strokeDashoffset = "0";
+    el.timerNum.textContent = round.phaseSeconds;
+
+    if (name === "guess") {
+      // The panel is now full-screen, so the map has to be re-measured.
+      if (playerFramed) guessMap.invalidateSize({ animate: false });
+      else frameWorld();
+      el.guessBtn.focus();
+    }
+
     clearInterval(ticker);
     ticker = setInterval(tick, 200);
+    tick();
   }
 
   function tick() {
@@ -397,13 +435,21 @@
     el.timerNum.textContent = seconds;
 
     const circumference = 2 * Math.PI * 19;
-    const fraction = 1 - remaining / (ROUND_SECONDS * 1000);
+    const fraction = 1 - remaining / (round.phaseSeconds * 1000);
     el.timerRing.style.strokeDashoffset = (circumference * fraction).toFixed(2);
 
     el.timer.classList.toggle("is-warn", seconds <= 20 && seconds > 10);
     el.timer.classList.toggle("is-urgent", seconds <= 10);
 
-    if (remaining <= 0) submitGuess(true);
+    if (remaining > 0) return;
+    if (round.phase === "look") setPhase("guess");
+    else submitGuess(true);
+  }
+
+  /** Enlarges the photo thumbnail that sits over the map while guessing. */
+  function setPeek(open) {
+    screens.play.classList.toggle("is-peeking", open);
+    el.peek.setAttribute("aria-expanded", String(open));
   }
 
   function submitGuess(timedOut) {
@@ -576,6 +622,10 @@
   el.home.addEventListener("click", () => show("start"));
   el.nextBtn.addEventListener("click", advance);
   el.guessBtn.addEventListener("click", () => submitGuess(false));
+  el.toMap.addEventListener("click", () => setPhase("guess"));
+  el.peek.addEventListener("click", () => {
+    setPeek(!screens.play.classList.contains("is-peeking"));
+  });
   el.mapToggle.addEventListener("click", () => {
     setMapOpen(!el.mappanel.classList.contains("is-open"));
   });
@@ -585,9 +635,17 @@
 
   document.addEventListener("keydown", (e) => {
     if (screens.play.classList.contains("is-active")) {
-      if (e.key === "Enter" && !el.guessBtn.disabled) { e.preventDefault(); submitGuess(false); }
-      if (e.key === "m" || e.key === "M") setMapOpen(!el.mappanel.classList.contains("is-open"));
-      if (e.key === "Escape") setMapOpen(false);
+      const looking = round && round.phase === "look";
+      if (e.key === "Enter") {
+        e.preventDefault();
+        if (looking) setPhase("guess");
+        else if (!el.guessBtn.disabled) submitGuess(false);
+      }
+      if (e.key === "m" || e.key === "M") {
+        if (looking) setPhase("guess");
+        else setPeek(!screens.play.classList.contains("is-peeking"));
+      }
+      if (e.key === "Escape") setPeek(false);
       if (e.key === "ArrowLeft" && round && round.photos.length > 1) showPhoto(round.photoIndex - 1);
       if (e.key === "ArrowRight" && round && round.photos.length > 1) showPhoto(round.photoIndex + 1);
     } else if (screens.reveal.classList.contains("is-active") && e.key === "Enter") {
@@ -600,6 +658,11 @@
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden && round && !round.submitted) tick();
   });
+
+  // Make it clear the round count is a per-game setting, not the whole pool.
+  el.poolNote.innerHTML = "Drawn at random from <b>" + nf(BEACHES.length) +
+    " beaches</b> in " + nf(new Set(BEACHES.map(function (b) { return b.country; })).size) +
+    " countries.";
 
   renderBest();
 })();

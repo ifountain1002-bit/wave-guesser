@@ -1,8 +1,9 @@
 # Wave Guesser
 
-A GeoGuessr-style game for beaches. You get a photograph of a beach somewhere
-in the world and **60 seconds** to drop a pin on a world map. The closer you
-land, the more you score.
+A GeoGuessr-style game for beaches. Each round shows you photographs of a
+beach somewhere in the world. You get **60 seconds to study it**, then
+**30 seconds on the map** to drop your pin — and you can go to the map early
+if you already know. The closer you land, the more you score.
 
 It is a static site — three files of JavaScript, one stylesheet and a local
 copy of Leaflet. No build step, no server, no API keys.
@@ -93,12 +94,20 @@ beach's name, coordinates and Wikipedia article title; at runtime
 
 1. `en.wikipedia.org/w/api.php` for the article's lead image and every other
    image it uses, with dimensions and licence metadata.
-2. Anything that is not a usable photograph is discarded — SVGs, icons, flags,
-   locator maps, diagrams, files under 900×500, and extreme aspect ratios.
-3. If an article yields nothing, it falls back to a Commons geo-search within
-   10 km of the beach's coordinates.
-4. Each candidate is decoded in the browser before a round uses it, so a dead
-   file never reaches the player.
+2. In parallel, a Commons geo-search within 10 km of the beach's coordinates.
+   Running both is what gives a round enough different views of a beach to
+   recognise it; results are merged and de-duplicated, with the article's own
+   images ranked first.
+3. Anything that is not a usable photograph is discarded — SVGs, icons, flags,
+   locator maps, diagrams, files under 700×400, and extreme aspect ratios.
+4. Up to 8 photos are kept per beach. The first is decoded in the browser
+   before the round starts; if a spare turns out to be dead, the pager drops it
+   rather than showing a broken frame.
+
+The credit is deliberately **not** shown while you are guessing: Commons
+filenames almost always contain the beach's name. The play screen says only
+that the photo comes from Wikimedia Commons, and the full credit — file,
+author, licence — appears on the reveal screen.
 
 Because the credit line is read from the same API response as the image, the
 attribution shown always matches the photo on screen. Every photo links back to
@@ -106,6 +115,20 @@ its Commons file page and its licence.
 
 This does mean **the game needs an internet connection** and that the exact
 photos change as Wikipedia articles change.
+
+### A round
+
+| Phase | Time | What happens |
+|-------|-----:|--------------|
+| Look | 60s | The photo fills the screen. Flick through every photo of the beach with `←` / `→`. No map, and no photo credit — Commons filenames usually contain the beach's name. |
+| Guess | 30s | The map takes the screen. The photo stays in the corner; click it to enlarge. Place a pin and confirm. |
+
+Press **Enter** (or the button) during the look phase to go to the map early.
+Doing so still gives you the full 30 seconds to guess. If the guess clock runs
+out with no pin, the round scores zero.
+
+Both durations are constants at the top of `assets/js/game.js`
+(`LOOK_SECONDS`, `GUESS_SECONDS`) if you want to change them.
 
 ### Scoring
 
@@ -162,12 +185,22 @@ Append an entry to `BEACHES` in `assets/js/beaches.js`:
   fact: "One line shown on the reveal screen." }
 ```
 
-`lat`/`lng` are the scoring ground truth, so use the beach itself rather than
-the nearest town. `wiki` must be an article whose images actually show the
+The pool holds 230 beaches across 70 countries. `lat`/`lng` are the scoring
+ground truth, so use the beach itself rather than the nearest town. `wiki` must be an article whose images actually show the
 beach — the filter removes obvious junk, but it cannot tell a photo of the
 harbour from a photo of the sand. The game skips any beach it cannot find a
 photo for, and it will not put two beaches within 100 km of each other in the
 same game.
+
+## Known limitations
+
+- **Still photos only.** A single photo of sand and water is often not enough
+  to place a beach. Panoramic or street-level imagery would help a great deal;
+  [Mapillary](https://www.mapillary.com/) has a free API with street-level
+  coverage of many coastlines and would be the natural next step.
+- **Needs a connection.** Photos and map tiles are fetched live.
+- **Coordinates are hand-entered.** They are the scoring ground truth, so an
+  error makes a round unfair. Corrections are one-line changes.
 
 ## Credits
 
