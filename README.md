@@ -36,6 +36,29 @@ python3 -m http.server 8000
 Any static file server works. Opening `index.html` off the filesystem works
 too, but the single-file build above is the tidier way to do that.
 
+## Play with friends
+
+Wave Guesser has a GeoGuessr-style **challenge** mode: everyone plays the
+*same beaches in the same order*, then compares scores. There is no server and
+no account — the round line-up is derived from a shared seed baked into a short
+code.
+
+- **Create a challenge** on the start screen. It makes a code like `5L-3F9KZ2`
+  (`5` beaches, `L`abels on, then the seed) and puts a link in your address bar.
+  Copy the link or code and send it to your friends.
+- **Join** by pasting the link or code, or just open the link — you'll land on
+  the start screen with the challenge already loaded. Press **Start challenge**.
+- Everyone gets the identical beaches. At the end, use **Copy my result** to
+  paste your score into the chat, or **Copy challenge link** to invite more
+  players.
+
+Because the line-up comes purely from the seed, no two players need to be
+online at the same time — it works like a GeoGuessr challenge link, not a live
+lobby. Scoring is by coordinates, so it stays fair even though the exact
+photos are still fetched live per player. (Changing the beaches-per-game or
+map-labels settings starts a fresh, private random game and leaves the
+challenge.)
+
 ## Putting it on GitHub Pages
 
 `.github/workflows/deploy.yml` publishes the site on every push to `main`

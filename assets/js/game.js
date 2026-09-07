@@ -62,7 +62,16 @@
     finalRank: $("final-rank"), breakdown: $("breakdown"),
     again: $("btn-again"), home: $("btn-home"), best: $("best-line"),
     poolNote: $("pool-note"),
-    toast: $("toast")
+    toast: $("toast"),
+    // Challenge (shared-seed multiplayer) controls.
+    invite: $("invite"),
+    createChallenge: $("btn-create-challenge"),
+    joinToggle: $("btn-join-toggle"),
+    joinRow: $("join-row"), joinCode: $("join-code"), joinBtn: $("btn-join"),
+    shareBox: $("share-box"), shareCode: $("share-code"),
+    copyLink: $("btn-copy-link"), copyCode: $("btn-copy-code"),
+    finalShare: $("final-share"), finalCode: $("final-code"),
+    copyResult: $("btn-copy-result"), copyChallenge: $("btn-copy-challenge")
   };
 
   /* ---------------------------------------------------------------- */
@@ -70,6 +79,10 @@
   /* ---------------------------------------------------------------- */
 
   const settings = { rounds: 5, labels: "on" };
+
+  // When a challenge is active every player draws the same beaches in the same
+  // order from a shared seed. null means an ordinary random game.
+  let challenge = null; // { code, seed, rounds, labels }
 
   let game = null;      // { beaches, results, index, total }
   let round = null;     // { beach, photos, photoIndex, guess, deadline }
@@ -129,18 +142,84 @@
     return { lat: latlng.lat, lng: lng };
   }
 
-  function shuffled(list) {
+  /* ---------------------------------------------------------------- */
+  /* challenges — same beaches for everyone from a shared seed          */
+  /* ---------------------------------------------------------------- */
+
+  // Map the round-count setting to a single character so it fits in the code.
+  const ROUNDS_CODE = { 3: "3", 5: "5", 10: "X" };
+  const CODE_ROUNDS = { "3": 3, "5": 5, "X": 10 };
+
+  /** A tiny seeded PRNG (mulberry32). Same seed → same sequence everywhere. */
+  function mulberry32(seed) {
+    let a = seed >>> 0;
+    return function () {
+      a |= 0; a = (a + 0x6d2b79f5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+
+  /** The RNG a game draws from: seeded inside a challenge, random otherwise. */
+  function gameRng() {
+    return challenge ? mulberry32(challenge.seed) : Math.random;
+  }
+
+  /** Builds the shareable code that carries the seed, round count and labels. */
+  function encodeChallenge(c) {
+    const seed = (c.seed >>> 0).toString(36).toUpperCase();
+    return ROUNDS_CODE[c.rounds] + (c.labels === "off" ? "N" : "L") + "-" + seed;
+  }
+
+  /**
+   * Reads a challenge back out of a pasted code or a full challenge link.
+   * Lenient about case, spaces and the hyphen; returns null if it can't.
+   */
+  function parseChallenge(text) {
+    if (!text) return null;
+    let raw = String(text).trim();
+    const m = raw.match(/[?&]g=([^&\s]+)/i); // a pasted link
+    if (m) raw = decodeURIComponent(m[1]);
+    raw = raw.replace(/[\s-]/g, "").toUpperCase();
+    if (raw.length < 3) return null;
+    const rounds = CODE_ROUNDS[raw[0]];
+    const labels = raw[1] === "N" ? "off" : raw[1] === "L" ? "on" : null;
+    const seed = parseInt(raw.slice(2), 36);
+    if (!rounds || !labels || !Number.isFinite(seed)) return null;
+    const c = { seed: seed >>> 0, rounds: rounds, labels: labels };
+    c.code = encodeChallenge(c);
+    return c;
+  }
+
+  /** The full link that opens straight into a challenge. */
+  function challengeLink(c) {
+    // Opened from a file:// build there is no shareable origin; fall back to the
+    // hosted site so the copied link still works for whoever receives it.
+    const base = location.protocol === "file:"
+      ? "https://ifountain1002-bit.github.io/wave-guesser/"
+      : location.origin + location.pathname;
+    return base + "?g=" + c.code;
+  }
+
+  /** replaceState throws on a file:// page; the address bar just won't update. */
+  function setUrl(url) {
+    try { history.replaceState(null, "", url); } catch (err) { /* file:// */ }
+  }
+
+  function shuffled(list, rng) {
+    const rand = rng || Math.random;
     const copy = list.slice();
     for (let i = copy.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
+      const j = Math.floor(rand() * (i + 1));
       [copy[i], copy[j]] = [copy[j], copy[i]];
     }
     return copy;
   }
 
   /** Picks the round line-up, avoiding two beaches that sit on top of each other. */
-  function pickBeaches(count) {
-    const pool = shuffled(BEACHES);
+  function pickBeaches(count, rng) {
+    const pool = shuffled(BEACHES, rng);
     const chosen = [];
     for (const candidate of pool) {
       if (chosen.length >= count) break;
@@ -325,7 +404,10 @@
     el.loadStatus.textContent = "Contacting Wikimedia…";
 
     const wanted = settings.rounds;
-    const queue = pickBeaches(Math.min(BEACHES.length, wanted + 6)); // spares for failures
+    // Inside a challenge the seeded RNG makes this line-up identical for every
+    // player; the spares (drawn in the same deterministic order) only stand in
+    // when a photo fails to load.
+    const queue = pickBeaches(Math.min(BEACHES.length, wanted + 6), gameRng());
     const ready = await loadRounds(queue, wanted);
 
     if (loadAbandoned) return;
@@ -575,7 +657,20 @@
       el.breakdown.appendChild(li);
     });
 
+    if (el.finalShare) {
+      el.finalShare.hidden = !challenge;
+      if (challenge) el.finalCode.textContent = challenge.code;
+    }
+
     saveBest(game.total, max);
+  }
+
+  /** A one-line result to paste into a chat, plus the link to try to beat it. */
+  function resultText() {
+    const max = game.rounds.length * MAX_POINTS;
+    return "🌊 Wave Guesser challenge " + challenge.code + " — " +
+      nf(game.total) + " / " + nf(max) + " (" + rankFor(game.total / max) +
+      "). Same beaches, beat me: " + challengeLink(challenge);
   }
 
   function saveBest(total, max) {
@@ -599,6 +694,61 @@
   }
 
   /* ---------------------------------------------------------------- */
+  /* challenge UI                                                       */
+  /* ---------------------------------------------------------------- */
+
+  /** Moves the "is-on" state of the segmented controls to match `settings`. */
+  function reflectSettings() {
+    document.querySelectorAll(".segmented .seg").forEach((b) => {
+      const on = (b.dataset.rounds && Number(b.dataset.rounds) === settings.rounds) ||
+        (b.dataset.labels && b.dataset.labels === settings.labels);
+      b.classList.toggle("is-on", !!on);
+      b.setAttribute("aria-checked", on ? "true" : "false");
+    });
+  }
+
+  function updatePlayButton() {
+    el.play.textContent = challenge ? "Start challenge" : "Start guessing";
+  }
+
+  /** Enters a challenge: locks settings to it and reflects it on the start screen. */
+  function enterChallenge(c) {
+    challenge = c;
+    settings.rounds = c.rounds;
+    settings.labels = c.labels;
+    reflectSettings();
+    refreshTiles();
+    if (el.shareBox) {
+      el.shareCode.textContent = c.code;
+      el.shareBox.hidden = false;
+    }
+    if (el.joinRow) el.joinRow.hidden = true;
+    updatePlayButton();
+  }
+
+  /** Leaves challenge mode — the player is back to an ordinary random game. */
+  function clearChallenge() {
+    if (!challenge) return;
+    challenge = null;
+    if (el.shareBox) el.shareBox.hidden = true;
+    if (el.invite) el.invite.hidden = true;
+    updatePlayButton();
+    // Drop ?g= so a reload doesn't drag the player back into the challenge.
+    if (location.search) {
+      setUrl(location.origin + location.pathname);
+    }
+  }
+
+  function copyText(text, okMsg) {
+    const done = () => toast(okMsg || "Copied to clipboard.", 2600);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done, () => prompt("Copy this:", text));
+    } else {
+      prompt("Copy this:", text);
+    }
+  }
+
+  /* ---------------------------------------------------------------- */
   /* wiring                                                            */
   /* ---------------------------------------------------------------- */
 
@@ -606,6 +756,8 @@
     group.addEventListener("click", (e) => {
       const btn = e.target.closest(".seg");
       if (!btn) return;
+      // Hand-tuning the settings means you're building your own game now.
+      clearChallenge();
       group.querySelectorAll(".seg").forEach((b) => {
         b.classList.remove("is-on");
         b.setAttribute("aria-checked", "false");
@@ -617,9 +769,43 @@
     });
   });
 
+  if (el.createChallenge) {
+    el.createChallenge.addEventListener("click", () => {
+      const seed = (Math.random() * 0x100000000) >>> 0;
+      const c = { seed: seed, rounds: settings.rounds, labels: settings.labels };
+      c.code = encodeChallenge(c);
+      enterChallenge(c);
+      setUrl(challengeLink(c));
+      toast("Challenge ready — share the link, then start when you like.", 4200);
+    });
+  }
+
+  if (el.joinToggle) {
+    el.joinToggle.addEventListener("click", () => {
+      el.joinRow.hidden = !el.joinRow.hidden;
+      if (!el.joinRow.hidden) el.joinCode.focus();
+    });
+  }
+
+  if (el.joinRow) {
+    el.joinRow.addEventListener("submit", (e) => {
+      e.preventDefault();
+      const c = parseChallenge(el.joinCode.value);
+      if (!c) { toast("That doesn't look like a challenge code. Paste the link or code you were sent.", 5000); return; }
+      enterChallenge(c);
+      setUrl(challengeLink(c));
+      startGame();
+    });
+  }
+
+  if (el.copyLink) el.copyLink.addEventListener("click", () => challenge && copyText(challengeLink(challenge), "Challenge link copied."));
+  if (el.copyCode) el.copyCode.addEventListener("click", () => challenge && copyText(challenge.code, "Challenge code copied."));
+
   el.play.addEventListener("click", startGame);
   el.again.addEventListener("click", startGame);
   el.home.addEventListener("click", () => show("start"));
+  if (el.copyResult) el.copyResult.addEventListener("click", () => challenge && copyText(resultText(), "Result copied — paste it to your friends."));
+  if (el.copyChallenge) el.copyChallenge.addEventListener("click", () => challenge && copyText(challengeLink(challenge), "Challenge link copied."));
   el.nextBtn.addEventListener("click", advance);
   el.guessBtn.addEventListener("click", () => submitGuess(false));
   el.toMap.addEventListener("click", () => setPhase("guess"));
@@ -665,4 +851,17 @@
     " countries.";
 
   renderBest();
+
+  // Opened from a shared challenge link? Load it and invite the player in.
+  (function bootChallenge() {
+    const params = new URLSearchParams(location.search);
+    const c = parseChallenge(params.get("g"));
+    if (!c) return;
+    enterChallenge(c);
+    if (el.invite) {
+      el.invite.innerHTML = "You've been invited to a challenge — the same " +
+        c.rounds + " beaches everyone else is guessing. Press <b>Start challenge</b>.";
+      el.invite.hidden = false;
+    }
+  })();
 })();

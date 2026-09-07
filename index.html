@@ -18,6 +18,8 @@
     <h1 class="logo">Wave<span>Guesser</span></h1>
     <p class="tagline">Somewhere on Earth, this is the view from the sand.<br><strong>One minute</strong> to study it, then <strong>30 seconds</strong> to say where.</p>
 
+    <p class="invite" id="invite" hidden></p>
+
     <ol class="how">
       <li><span>1</span> Study the beach — 60 seconds, and several photos to flick through.</li>
       <li><span>2</span> Go to the map, early if you're ready, and drop your pin within 30 seconds.</li>
@@ -44,6 +46,27 @@
     </div>
 
     <button class="btn btn--primary btn--big" id="btn-play">Start guessing</button>
+
+    <div class="friends">
+      <p class="friends__lead">Play with friends — same beaches, same order</p>
+      <div class="friends__actions">
+        <button type="button" class="btn btn--ghost" id="btn-create-challenge">Create a challenge</button>
+        <button type="button" class="btn btn--ghost" id="btn-join-toggle">Join by code</button>
+      </div>
+      <form class="friends__join" id="join-row" hidden>
+        <input id="join-code" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Paste challenge link or code" aria-label="Challenge link or code">
+        <button type="submit" class="btn btn--primary" id="btn-join">Join</button>
+      </form>
+      <div class="friends__share" id="share-box" hidden>
+        <p class="friends__code">Challenge code <b id="share-code">—</b></p>
+        <div class="friends__actions">
+          <button type="button" class="btn btn--ghost" id="btn-copy-link">Copy link</button>
+          <button type="button" class="btn btn--ghost" id="btn-copy-code">Copy code</button>
+        </div>
+        <p class="muted friends__note">Send this to friends. Everyone plays the same beaches, then compares scores at the end.</p>
+      </div>
+    </div>
+
     <p class="best" id="best-line" hidden></p>
     <p class="pool-note" id="pool-note"></p>
     <p class="credit-note">Photos are loaded live from Wikipedia &amp; Wikimedia Commons. Map data © OpenStreetMap contributors.</p>
@@ -131,6 +154,13 @@
     <h2 class="final-score"><b id="final-points">0</b><span id="final-max">/ 25,000</span></h2>
     <p class="final-rank" id="final-rank"></p>
     <ul class="breakdown" id="breakdown"></ul>
+    <div class="final-share" id="final-share" hidden>
+      <p class="friends__code">Challenge <b id="final-code">—</b> · compare with your friends</p>
+      <div class="friends__actions">
+        <button type="button" class="btn btn--ghost" id="btn-copy-result">Copy my result</button>
+        <button type="button" class="btn btn--ghost" id="btn-copy-challenge">Copy challenge link</button>
+      </div>
+    </div>
     <div class="final-actions">
       <button class="btn btn--primary btn--big" id="btn-again">Play again</button>
       <button class="btn btn--ghost" id="btn-home">Change settings</button>
