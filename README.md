@@ -1,18 +1,18 @@
-# Wave Guesser
+# Beach Guesser
 
 A GeoGuessr-style game for beaches. Each round shows you photographs of a
 beach somewhere in the world. You get **60 seconds to study it**, then
 **30 seconds on the map** to drop your pin — and you can go to the map early
 if you already know. The closer you land, the more you score.
 
-It is a static site — three files of JavaScript, one stylesheet and a local
+It is a static site — a handful of JavaScript files, one stylesheet and a local
 copy of Leaflet. No build step, no server, no API keys.
 
 ## Play it
 
 ### The downloadable single file
 
-`wave-guesser.html` is the whole game in one file — Leaflet, the styles, the
+`beach-guesser.html` is the whole game in one file — Leaflet, the styles, the
 beach list and the game code all inlined. Download it, double-click it, play.
 No server, no install, nothing to unpack.
 
@@ -162,17 +162,20 @@ Letting the clock run out with no pin scores zero. Your best game is kept in
 
 ```
 index.html              markup for all five screens
-wave-guesser.html       generated single-file build (see tools/)
+beach-guesser.html      generated single-file build (see tools/)
 assets/css/style.css    all styling
+assets/js/config.js     optional Supabase settings (blank = offline features)
+assets/js/backend.js    leaderboard + photo reports, with local fallbacks
 assets/js/beaches.js    the beach pool — name, country, lat/lng, article, trivia
-assets/js/photos.js     Wikimedia lookup, filtering and preloading
+assets/js/photos.js     Wikimedia lookup, ranking, filtering and preloading
 assets/js/game.js       rounds, timer, scoring, both Leaflet maps
+docs/online-setup.md    how to switch the worldwide features on
 vendor/leaflet/         Leaflet 1.9.4 (BSD-2-Clause)
 tools/                  the single-file bundler
 .github/workflows/      GitHub Pages deployment
 ```
 
-`wave-guesser.html` is generated. Edit the sources under `assets/`, then run
+`beach-guesser.html` is generated. Edit the sources under `assets/`, then run
 the bundler — don't edit the bundle directly.
 
 ## Adding a beach
@@ -192,6 +195,32 @@ harbour from a photo of the sand. The game skips any beach it cannot find a
 photo for, and it will not put two beaches within 100 km of each other in the
 same game.
 
+## Leaderboard and photo reports
+
+Both work out of the box with nothing configured, in a device-local form:
+
+- **Leaderboard** — finished games are kept per round-length on your own
+  device, so a 3-beach game is never ranked against a 10-beach one.
+- **Reporting** — the flag button on the photo, and the link on the reveal
+  screen, hide that photo from your future games straight away.
+
+Point `assets/js/config.js` at a free Supabase project and the same buttons
+publish to a worldwide board and a shared block list, where a photo enough
+people have reported stops being served to anyone.
+[docs/online-setup.md](docs/online-setup.md) has the SQL and, importantly,
+a section on what this design **cannot** do — scores come from the browser, so
+they can be forged.
+
+### Photo order within a round
+
+The first photo is chosen to be the beach itself: candidates are scored on
+whether the Commons filename names this beach or uses shoreline words
+(`beach`, `bay`, `playa`, `praia`, `strand`…), against words that suggest
+something else nearby (`museum`, `hotel`, `harbour`…), with the Wikipedia
+article's lead image weighted up. Everything after slot 1 is context from
+around the beach, ordered by how far each geo-tagged photo actually is from
+the coordinates — so flicking forward walks you outwards.
+
 ## Known limitations
 
 - **Still photos only.** A single photo of sand and water is often not enough
@@ -201,6 +230,8 @@ same game.
 - **Needs a connection.** Photos and map tiles are fetched live.
 - **Coordinates are hand-entered.** They are the scoring ground truth, so an
   error makes a round unfair. Corrections are one-line changes.
+- **Leaderboard scores are not verifiable.** A static site has no server to
+  check them against. See docs/online-setup.md.
 
 ## Credits
 

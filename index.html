@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Wave Guesser — guess the beach</title>
+<title>Beach Guesser</title>
 <meta name="description" content="A geo-guessing game for beaches. You get a photo of a beach somewhere in the world and 60 seconds to drop a pin on the map.">
 <meta name="theme-color" content="#04141d">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏖️</text></svg>">
@@ -15,7 +15,7 @@
 <!-- ─────────────────────────  START  ───────────────────────── -->
 <section class="screen screen--start is-active" id="screen-start">
   <div class="start-card">
-    <h1 class="logo">Wave<span>Guesser</span></h1>
+    <h1 class="logo">Beach<span>Guesser</span></h1>
     <p class="tagline">Somewhere on Earth, this is the view from the sand.<br><strong>One minute</strong> to study it, then <strong>30 seconds</strong> to say where.</p>
 
     <ol class="how">
@@ -45,6 +45,7 @@
 
     <button class="btn btn--primary btn--big" id="btn-play">Start guessing</button>
     <p class="best" id="best-line" hidden></p>
+    <button class="btn btn--ghost btn--wide" id="btn-leaderboard">View leaderboard</button>
     <p class="pool-note" id="pool-note"></p>
     <p class="credit-note">Photos are loaded live from Wikipedia &amp; Wikimedia Commons. Map data © OpenStreetMap contributors.</p>
   </div>
@@ -71,7 +72,9 @@
       <button class="iconbtn" id="photo-prev" aria-label="Previous photo of this beach">‹</button>
       <span id="photo-count">1 / 1</span>
       <button class="iconbtn" id="photo-next" aria-label="Next photo of this beach">›</button>
+      <button class="iconbtn iconbtn--flag" id="photo-report" aria-label="Report this photo" title="Report this photo">&#9873;</button>
     </div>
+
 
     <p class="photo-credit" id="photo-credit">Photo from Wikimedia Commons &middot; full credit after you guess</p>
 
@@ -120,6 +123,7 @@
     </div>
     <p class="reveal-fact" id="reveal-fact"></p>
     <p class="reveal-credit" id="reveal-credit"></p>
+    <button class="reportlink" id="reveal-report">&#9873; Report this photo</button>
     <button class="btn btn--primary btn--big" id="btn-next">Next round</button>
   </div>
 </section>
@@ -131,17 +135,55 @@
     <h2 class="final-score"><b id="final-points">0</b><span id="final-max">/ 25,000</span></h2>
     <p class="final-rank" id="final-rank"></p>
     <ul class="breakdown" id="breakdown"></ul>
+    <form class="submitrow" id="submit-row">
+      <label class="sr-only" for="player-name">Your name</label>
+      <input class="namefield" id="player-name" type="text" maxlength="20"
+             placeholder="Your name" autocomplete="nickname">
+      <button class="btn btn--primary" id="btn-submit-score" type="submit">Add to leaderboard</button>
+    </form>
+    <p class="submit-note" id="submit-note"></p>
+
     <div class="final-actions">
       <button class="btn btn--primary btn--big" id="btn-again">Play again</button>
+      <button class="btn btn--ghost" id="btn-view-board">Leaderboard</button>
       <button class="btn btn--ghost" id="btn-home">Change settings</button>
     </div>
   </div>
 </section>
 
+<!-- ──────────────────────  LEADERBOARD  ────────────────────── -->
+<section class="screen screen--board" id="screen-board">
+  <div class="board-card">
+    <p class="reveal-eyebrow" id="board-scope">Leaderboard</p>
+    <h2 class="board-title">Best rounds</h2>
+
+    <div class="segmented segmented--board" role="radiogroup" aria-label="Board length">
+      <button type="button" role="radio" class="seg" data-board="3">3 beaches</button>
+      <button type="button" role="radio" class="seg is-on" data-board="5" aria-checked="true">5 beaches</button>
+      <button type="button" role="radio" class="seg" data-board="10">10 beaches</button>
+    </div>
+
+    <ol class="board" id="board-list"></ol>
+    <p class="board-note" id="board-note"></p>
+    <button class="btn btn--ghost btn--wide" id="btn-board-back">Back</button>
+  </div>
+</section>
+
 <!-- ─────────────────────────  ERROR  ───────────────────────── -->
+<div class="reportbox" id="reportbox" hidden role="dialog" aria-modal="true" aria-label="Report this photo">
+  <div class="reportbox__panel">
+    <p class="reportbox__title">What's wrong with this photo?</p>
+    <p class="reportbox__which" id="report-which"></p>
+    <div class="reportbox__reasons" id="report-reasons"></div>
+    <button class="btn btn--ghost reportbox__cancel" id="report-cancel">Cancel</button>
+  </div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 
 <script src="vendor/leaflet/leaflet.js"></script>
+<script src="assets/js/config.js"></script>
+<script src="assets/js/backend.js"></script>
 <script src="assets/js/beaches.js"></script>
 <script src="assets/js/photos.js"></script>
 <script src="assets/js/game.js"></script>

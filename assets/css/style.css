@@ -1,5 +1,5 @@
 /* ============================================================
-   Wave Guesser
+   Beach Guesser
    ============================================================ */
 
 :root {
@@ -22,6 +22,10 @@
 }
 
 * { box-sizing: border-box; }
+
+/* An author `display` beats the UA rule for [hidden], which silently leaves
+   "hidden" overlays on screen and swallowing clicks. Make the attribute win. */
+[hidden] { display: none !important; }
 
 html, body {
   height: 100%;
@@ -634,6 +638,134 @@ button { font: inherit; color: inherit; }
 .breakdown .p { color: var(--sand); font-weight: 700; font-variant-numeric: tabular-nums; min-width: 4.2ch; text-align: right; }
 .final-actions { display: grid; gap: 0.6rem; }
 
+
+/* ============================================================
+   REPORTING A PHOTO
+   ============================================================ */
+
+.iconbtn--flag { font-size: 0.9rem; opacity: 0.65; }
+.iconbtn--flag:hover { opacity: 1; color: var(--coral); }
+.iconbtn--flag.is-done { color: var(--surf); opacity: 1; }
+
+.reportbox {
+  position: fixed;
+  inset: 0;
+  z-index: 9000;
+  display: grid;
+  place-items: center;
+  background: rgba(2, 12, 18, 0.62);
+  backdrop-filter: blur(3px);
+  padding: 1rem;
+}
+.reportbox__panel {
+  width: min(360px, 100%);
+  background: var(--panel-solid);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  padding: 1.1rem;
+  text-align: left;
+}
+.reportbox__title { margin: 0 0 0.3rem; font-size: 1rem; font-weight: 650; }
+.reportbox__which {
+  margin: 0 0 0.85rem;
+  font-size: 0.75rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reportbox__reasons { display: grid; gap: 0.4rem; margin-bottom: 0.6rem; }
+.reportbox__reasons button {
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--foam);
+  border-radius: 10px;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.88rem;
+  text-align: left;
+  cursor: pointer;
+}
+.reportbox__reasons button:hover { border-color: var(--surf); background: rgba(63, 210, 199, 0.12); }
+.reportbox__cancel { width: 100%; padding: 0.45rem; font-size: 0.8rem; }
+
+.reportlink {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  padding: 0;
+  font-size: 0.72rem;
+  color: var(--muted);
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.reportlink:hover { color: var(--coral); }
+.reportlink.is-done { color: var(--surf); text-decoration: none; cursor: default; }
+
+/* ============================================================
+   LEADERBOARD
+   ============================================================ */
+
+.screen--board.is-active { display: grid; place-items: center; overflow-y: auto; }
+.screen--board { background: linear-gradient(170deg, #061e2a, var(--deep) 70%); padding: 2rem 1.25rem; }
+.board-card { width: min(520px, 100%); text-align: center; }
+.board-title { margin: 0.35rem 0 1.2rem; font-size: clamp(1.6rem, 5vw, 2.2rem); letter-spacing: -0.02em; }
+.segmented--board { margin-bottom: 1.2rem; }
+
+.board { list-style: none; margin: 0 0 1rem; padding: 0; display: grid; gap: 0.4rem; text-align: left; }
+.board li {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto;
+  align-items: center;
+  gap: 0.7rem;
+  background: rgba(255, 255, 255, 0.035);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.8rem;
+  font-size: 0.9rem;
+}
+.board li.is-you { border-color: var(--surf); background: rgba(63, 210, 199, 0.1); }
+.board .rank { color: var(--muted); font-variant-numeric: tabular-nums; }
+.board .who { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.board .pts { color: var(--sand); font-weight: 700; font-variant-numeric: tabular-nums; }
+.board__empty { color: var(--muted); font-size: 0.9rem; padding: 1.4rem 0; }
+
+.board-note {
+  margin: 0 0 1.4rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: rgba(143, 178, 191, 0.8);
+}
+
+.submitrow { display: flex; gap: 0.5rem; margin: 0 0 0.5rem; }
+.namefield {
+  flex: 1;
+  min-width: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--foam);
+  padding: 0.7rem 1.1rem;
+  font: inherit;
+  font-size: 0.95rem;
+}
+.namefield:focus { outline: none; border-color: var(--surf); }
+.namefield::placeholder { color: var(--muted); }
+.submit-note { margin: 0 0 1.4rem; font-size: 0.78rem; color: var(--muted); min-height: 1.2em; }
+
+.btn--wide { width: 100%; margin-top: 0.6rem; }
+
+.sr-only {
+  position: absolute;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 /* ============================================================
    MAP MARKERS + TOAST
    ============================================================ */
@@ -723,6 +855,8 @@ button { font: inherit; color: inherit; }
   .reveal-thumb { aspect-ratio: 16 / 7; }
 
   .options { flex-direction: column; }
+  .submitrow { flex-direction: column; }
+  .submitrow .btn { width: 100%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
